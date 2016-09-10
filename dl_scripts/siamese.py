@@ -1,0 +1,170 @@
+import tensorflow as tf
+
+# Implementation of a siamese model, relying on the VGG19 net architecture;
+# source: [https://arxiv.org/pdf/1409.1556.pdf]
+#
+# references: https://github.com/jazzsaxmafia/Weakly_detector/blob/master/src/detector.py;
+#             https://github.com/machrisaa/tensorflow-vgg/blob/master/vgg19.py
+
+IMG_DIM  = 224
+VGG_MEAN = [103.939, 116.779, 123.68]
+
+class siamese:
+    def __init__(self, batch_size, weight_path):
+        # input for first and second network
+        self.x1 = tf.placeholder(tf.uint8, shape = (batch_size, IMG_DIM), name = "input_x1")
+        self.x2 = tf.placeholder(tf.uint8, shape = (batch_size, IMG_DIM), name = "input_x2")
+
+        # label, a.k.a. correct output
+        self.y  = tf.placeholder(tf.uint8, shape = (batch_size), name = "input_y") 
+
+        # dropout porpuses
+        self.keep_prob = tf.placeholder("float", name = "dropout_keep_prob")
+
+        # image mean values from VGG model
+        self.image_mean = [103.939, 116.779, 123.68]        
+
+        # activation values, i.e. output
+        with tf.variable_scope("siamese") as scope:
+            self.a1 = self.network(x1)
+
+            scope.reuse_variables()
+
+            self.a2 = self.network(x2)
+
+        # pre-trained weights of siamese model, according to VGG 19
+        self.s_dict = np.load(weight_path, encoding='latin1').item()
+
+    def network(self, x):
+        # x := BGR image of size [batch, 3, height, width]
+
+        # split it into different tensors
+        pre_x = np.swapaxes(np.swapaxes(x, 1, 3), 1, 2)
+        b, g, r = tf.split(3, 3, pre_x)
+
+        # takes the mean value
+        bgr = tf.concat(3, [blue - VGG_MEAN[0], green - VGG_MEAN[1],
+                            red - VGG_MEAN[2]])
+
+        # make sure final shape meets the shape
+        assert bgr.get_shape().as_list()[1:] == [224, 224, 3]
+
+        conv1_1 = self.conv_layer(bgr, "conv1_1")     # 224 x 224 x 64
+        conv1_2 = self.conv_layer(conv1_1, "conv1_2") 
+        pool1   = self.max_pool(conv1_2, "pool1")     # 112 x 112 x 128
+
+        conv2_1 = self.conv_layer(pool1, "conv2_1")   # 112 x 112 x 128
+        conv2_2 = self.conv_layer(conv2_1, "conv2_2") 
+        pool2   = self.max_pool(conv2_2, "pool2")     # 56 x 56 x 256
+
+        conv3_1 = self.conv_layer(pool2, "conv3_1")
+        conv3_2 = self.conv_layer(conv3_1, "conv3_2") 
+        conv3_3 = self.conv_layer(conv3_2, "conv3_3") 
+        conv3_4 = self.conv_layer(conv3_3, "conv3_4")
+        pool3   = self.max_pool(conv3_4, "pool3")     # 28 x 28 x 512
+
+        conv4_1 = self.conv_layer(pool3, "conv4_1")
+        conv4_2 = self.conv_layer(conv4_1, "conv4_2")
+        conv4_3 = self.conv_layer(conv4_2, "conv4_3")
+        conv4_4 = self.conv_layer(conv4_3, "conv4_4")
+        pool4   = self.max_pool(conv4_4, "pool4")     # 14 x 14 x 512
+
+        conv5_1 = self.conv_layer(pool4, "conv5_1")
+        conv5_2 = self.conv_layer(conv5_1, "conv5_2")
+        conv5_3 = self.conv_layer(conv5_2, "conv5_3")
+        conv5_4 = self.conv_layer(conv5_3, "conv5_4")
+        pool5   = self.max_pool(conv5_4, "pool5")     # 7 x 7 x 512
+
+        # fully connected
+        fc6 = self.fc_layer(pool5, "fc6")             # 1 x 1 x 4096
+
+        # make sure it fits
+        assert self.fc6.get_shape().as_list()[1:] == [4096]
+
+        relu6 = tf.nn.relu(fc6)
+
+        fc7    = self.fc_layer(relu6, "fc7")
+
+        relu7 = tf.nn.relu(fc7)                       # 1 x 1 x 1000
+
+        ## apply dropout
+        relu7_drop = tf.nn.dropout(fc7, keep_prob)
+
+        fc8 = fc_layer(relu7_drop, "fc8")   
+
+        prob = tf.nn.softmax(fc8_drop, name = "prob")
+
+        s_dict = None
+
+    # take the average pooling of the result, aka the size turns into half
+    def avg_pool(self, bottom, name):
+        return tf.nn.avg_pool(bottom, ksize = [1, 2, 2, 1], strides = [1, 2, 2, 1], padding = 'SAME', name = name)
+
+    def max_pool(self, bottom, name):
+        return tf.nn.max_pool(bottom, ksize = [1, 2, 2, 1], stides = [1, 2, 2, 1], padding = 'SAME', name = name)
+
+    def conv_layer(self, bottom, name):
+        with tf.variable_scope(name):
+            filt = self.get_filter(name)
+            b = self.get_bias(name)
+
+            # initialize values
+            conv_filt = tf.get_variable(
+                        "W",
+                        shape = filt.shape,
+                        initializer = tf.constant_initializer(filt)
+                        )
+
+            conv_bias = tf.get_variable(
+                        "b",
+                        shape = b.shape,
+                        initializer = tf.constant_initializer(b)
+                        )
+
+            conv = tf.nn.conv2d(bottom, conv_filt, [1, 1, 1, 1], padding = 'SAME')
+            bias = tf.nn.bias_add(conv, conv_bias)
+            relu = tf.nn.relu(bias, name = name)
+
+        return relu
+
+    def fc_layer(self, bottom, name):
+        with tf.variable_scope(name):
+            shape = bottom.get_shape().as_list()
+            dim = np.prod(shape[1:])
+
+            # flatten x
+            x = tf.reshape(bottom, [-1, dim])
+
+            w = self.get_fc_weight(name)
+            b = self.get_bias(name)
+
+            weights = tf.get_variable(
+                      "W",
+                      shape=cw.shape,
+                      initializer=tf.constant_initializer(w))
+            bias    = tf.get_variable(
+                      "b",
+                      shape=b.shape,
+                      initializer=tf.constant_initializer(b))
+
+            fc = tf.nn.bias_add(tf.matmul(x, weights), bias, name=scope)
+
+        return fc
+
+    # get weights according to the layer
+    def get_filter(self, name):
+        return tf.constant(self.s_dict[name][0], name="filter")
+
+    def get_bias(self, name):
+        return tf.constant(self.s_dict[name][1], name="biases")
+
+    def get_fc_weight(self, name):
+        return tf.constant(self.s_dict[name][0], name="weights")
+
+    def loss(logits, label):
+        a = logits[0::1] # output for first network
+        b = logits[1::2] # output for second network
+
+        diff = ((a - b) ** 2).sum(axis=1, keepdims=True)
+
+        return ((diff - label)**2).mean()

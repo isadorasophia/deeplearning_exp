@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from matplotlib import pyplot as plt
 
 import numpy as np
@@ -10,16 +12,18 @@ import shutil
 
 # define default values from database
 IMG_SIZE = 224
-MIN_MATCH_COUNT = 20
+MIN_MATCH_COUNT = 1
+
+ignore = True
 
 OUTPUT   = 'final'
 
-root     = '/home/bonnibel/ic/deeplearning/pless/treatment/testing/'
+root     = '/home/bonnibel/ic/deeplearning/pless/treatment/done/'
 
 def cv2keras(img):
     return np.swapaxes(np.swapaxes(img, 1, 2), 0, 1)
 
-def register(original, new):
+def register(original, new, transform = True):
     try:
         img = cv2.imread(new)
 
@@ -28,7 +32,11 @@ def register(original, new):
 
         # find the keypoints and descriptors with SIFT
         kp1, des1 = sift.detectAndCompute(original, None)
-        kp2, des2 = sift.detectAndCompute(img, None)
+
+        if img is None:
+            return None
+        else:
+            kp2, des2 = sift.detectAndCompute(img, None)
 
         FLANN_INDEX_KDTREE = 0
         index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
@@ -50,29 +58,40 @@ def register(original, new):
             if m.distance < 0.7 * n.distance:
                 good.append(m)
 
-        if len(good) > MIN_MATCH_COUNT:
-            src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1, 1, 2)
-            dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1, 1, 2)
-
-            M, mask = cv2.findHomography(dst_pts, src_pts, cv2.RANSAC, 5.0)
-            matchesMask = mask.ravel().tolist()
-
-            h, w, _ = original.shape
-
-            res = cv2.warpPerspective(img, M, (w, h), borderMode=cv2.BORDER_CONSTANT, borderValue=(255, 255, 255))
-
-        else:
+        # is it useful for us?
+        if len(good) < MIN_MATCH_COUNT:
             print "Images are not sufficiently alike - %d/%d" % (len(good), MIN_MATCH_COUNT)
             matchesMask = None
 
             return None
 
-        draw_params = dict(matchColor = (0,255,0), # draw matches in green color
-                           singlePointColor = None,
-                           matchesMask = matchesMask, # draw only inliers
-                           flags = 2)
+        if len(good) > MIN_MATCH_COUNT and len(good) < MIN_MATCH_COUNT * 2:
+            return img
 
-        img3 = cv2.drawMatches(original, kp1, img, kp2, good, None, **draw_params)
+        if transform and len(good) > MIN_MATCH_COUNT * 2:
+            src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1, 1, 2)
+            dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1, 1, 2)
+
+            M, mask = cv2.findHomography(dst_pts, src_pts, cv2.RANSAC, 5.0)
+
+            if mask is not None:
+                matchesMask = mask.ravel().tolist()
+
+            h, w, _ = original.shape
+
+            if M is not None and M.shape == (3, 3):
+                res = cv2.warpPerspective(img, M, (w, h), borderMode=cv2.BORDER_CONSTANT, borderValue=(255, 255, 255))
+            else:
+                res = img
+        else:
+            res = img
+
+        # draw_params = dict(matchColor = (0,255,0), # draw matches in green color
+        #                    singlePointColor = None,
+        #                    matchesMask = matchesMask, # draw only inliers
+        #                    flags = 2)
+
+        # img3 = cv2.drawMatches(original, kp1, img, kp2, good, None, **draw_params)
 
         return res
 
@@ -82,7 +101,7 @@ def register(original, new):
         return None
 
 def load_data(folder, min_obj, save):
-    sub_f = os.listdir(folder)
+    sub_f = sorted(os.listdir(folder))
 
     total = 0
     model = None
@@ -96,12 +115,16 @@ def load_data(folder, min_obj, save):
             m     = sub_n + '/' + img_f[0] # first image, taken as a model
             model = cv2.imread(m)
 
+            # get specs of image
+            h = model.shape[0]
+            w = model.shape[1]
+
         for img in img_f:
             file =  sub_n + '/' + img
 
             try:
                 # get full image, following registration
-                data = register(model, file)
+                data = register(model, file, False)
 
                 # if registration went bad, simply ignore it
                 if data is None:
@@ -110,9 +133,9 @@ def load_data(folder, min_obj, save):
                 total  += 1
                 num_img = 0 # counter
 
-                # get specs of image
-                h = data.shape[0]
-                w = data.shape[1]
+                # check specs of image
+                if h != data.shape[0] or w != data.shape[1]:
+                    continue
 
                 # crop conners to image default size
                 for i in range(min(h/IMG_SIZE + 1, 2)):
@@ -128,10 +151,15 @@ def load_data(folder, min_obj, save):
                         avg_color = np.average(np.average(cropped, axis = 0), axis = 0)
 
                         # sanity check for the image quality
-                        if not all (i >= 230 for i in avg_color):
+                        if ignore or not all (i >= 230 for i in avg_color):
                             cv2.imwrite(label, cropped)
 
                             num_img += 1
+                        else:
+                            del label
+                            del cropped
+
+                            print ('Incorrect image.')
 
                 # now, crop the center and be done with it!
                 if h/IMG_SIZE != 0 or w/IMG_SIZE != 0:
@@ -146,16 +174,26 @@ def load_data(folder, min_obj, save):
                     avg_color = np.average(np.average(cropped, axis = 0), axis = 0)
 
                     # sanity check for the image quality
-                    if not all (i >= 230 for i in avg_color):
+                    if ignore or not all (i >= 230 for i in avg_color):
                         cv2.imwrite(label, cropped)
 
                         num_img += 1
+                    else:
+                        del label
+                        del cropped
+                            
+                        print ('Incorrect image.')
 
                 else:
                     # in case the image is too small for any cropping, simply resize it
                     cropped = scipy.misc.imresize(data, 
                                                   (IMG_SIZE, IMG_SIZE), 
                                                   interp='bilinear')
+
+                    if not os.path.exists(save + str(num_img)):
+                        os.makedirs(save + str(num_img))
+
+                    print ('Image is too small.')
 
                     label = save + str(num_img) + '/' + img
 
