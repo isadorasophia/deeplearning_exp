@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import tensorflow as tf
 
 import siamese
@@ -7,6 +9,8 @@ import amos
 # references: https://github.com/tensorflow/models/blob/master/inception
 
 ## variables
+FLAGS = tf.app.flags.FLAGS
+
 # flags regarding data training
 tf.app.flags.DEFINE_float('initial_learning_rate', 0.01,
                           """Initial learning rate.""")
@@ -31,7 +35,7 @@ tf.app.flags.DEFINE_integer('num_gpus', 0,
                             """How many GPUs to use.""")
 
 # some important paths
-tf.app.flags.DEFINE_string('train_dir', '/tmp/amos_train',
+tf.app.flags.DEFINE_string('train_dir', '/media/bonnibel/Jerônimo/AMOS_Data/dataset/evaluation/00000016/',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('test_dir', '/tmp/amos_test',
@@ -46,7 +50,7 @@ tf.app.flags.DEFINE_string('n_epochs', 300000,
 MOMENTUM = 0.9
 EPSILON = 1.0
 
-def train():
+def train(dataset):
     # initialize session
     sess = tf.InteractiveSession()
 
@@ -64,7 +68,7 @@ def train():
     lr = tf.train.exponential_decay(FLAGS.initial_learning_rate,
                                     global_step,
                                     decay_steps,
-                                    FLAGS.learning_rate_decay_factor,
+                                    FLAGS.learning_rate_decay_factor)
 
     # create an optimizer that performs gradient descent
     opt = tf.train.AdamOptimizer(lr,
@@ -88,10 +92,8 @@ def train():
 
         if step % 5000 == 0 and step > 0:
             saver.save(sess, 'model.ckpt')
-            embed = siamese.o1.eval({siamese.x1: mnist.test.images})
-            embed.tofile('embed.txt')
 
 if __name__ == "__main__":
-    # dataset = amos.train(FLAGS.train_dir, FLAGS.test_dir)
+    train_dataset = amos.dataset(FLAGS.train_dir, FLAGS.batch_size)
 
-    train()
+    train(train_dataset)

@@ -18,7 +18,7 @@ ignore = True
 
 OUTPUT   = 'final'
 
-root     = '/home/bonnibel/ic/deeplearning/pless/treatment/done/'
+root     = '/media/bonnibel/Jerônimo/AMOS_Data/left/'
 
 def cv2keras(img):
     return np.swapaxes(np.swapaxes(img, 1, 2), 0, 1)

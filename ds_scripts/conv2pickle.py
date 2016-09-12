@@ -12,7 +12,7 @@ import scipy
 import os
 import sys
 
-DB_NAME = '/media/bonnibel/Jerônimo/AMOS_Data/static_view/final/'
+DB_NAME = '/media/bonnibel/Jerônimo/AMOS_Data/left/'
 
 # constant values
 MAX_IMG  = 18000
