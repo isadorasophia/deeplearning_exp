@@ -87,9 +87,10 @@ class dataset:
             self.current_file += 1
             self.batch_counter = 0
 
-        # assign variable and clean up space!
-        final_b = self.current_batches[cur_id][start:end]
-        self.current_batches[cur_id][start:end] = None
+        # assign variable and (possibly) clean up space!
+        final_b = self.current_batches[cur_id][int(start):int(end)]
+        
+        # del self.current_batches[cur_id][start:end]
 
         if end - size == 0:
             self.current_file += 1
@@ -110,7 +111,7 @@ class dataset:
             final_b[batch_size - extra:batch_size] = self.self.current_batches[cur_id][start:end]
 
             # clean up space!
-            self.self.current_batches[cur_id][start:end] = None
+            # del self.current_batches[cur_id][start:end]
 
         return final_b
 

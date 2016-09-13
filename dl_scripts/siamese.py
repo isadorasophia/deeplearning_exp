@@ -86,10 +86,10 @@ class siamese:
         fc7   = self.fc_layer(relu6, "fc7")
         relu7 = tf.nn.relu(fc7)                                # 1 x 1 x 1000
 
-        fc8  = self.fc_layer(relu7, "fc8")   
-        prob = tf.nn.softmax(fc8, name = "prob")
+        fc8   = self.fc_layer(relu7, "fc8") 
+        relu8 = tf.nn.relu(fc8)
 
-        # make it a binary output (either 0 or 1)
+        prob   = self.new_fc_layer(relu8, 1000, 1, "prob")
 
         s_dict = None
 
@@ -149,6 +149,27 @@ class siamese:
 
         return fc
 
+    def new_fc_layer(self, bottom, in_size, out_size, name):
+        with tf.variable_scope(name) as scope:
+            # flatten x
+            x = tf.reshape(bottom, [-1, in_size])
+
+            weights = tf.get_variable(
+                      "W",
+                      shape = [in_size, out_size],
+                      initializer = tf.random_normal_initializer(0., 0.01)
+                      )
+
+            bias = tf.get_variable(
+                   "b",
+                   shape = [out_size],
+                   initializer = tf.constant_initializer(0.)
+                   )
+
+            fc = tf.nn.bias_add(tf.matmul(x, weights), bias, name = name)
+
+        return fc
+
     # get weights according to the layer
     def get_filter(self, name):
         return tf.constant(self.s_dict[name][0], name="filter")
@@ -168,13 +189,11 @@ class siamese:
         # if x1 is newer
         labels_n = tf.sub(1, self.y, name="oneSubYi")
 
-        E_w = tf.abs((tf.sub(self.a1, self.a2)))
-        Q = 2
-
-        print E_w.get_shape()
+        E_w = tf.reduce_mean(tf.abs(tf.sub(self.a1, self.a2)))
+        Q = tf.argmax(E_w)
 
         loss = tf.add(tf.scalar_mul(2/Q, tf.mul(tf.cast(labels_n, tf.float32), tf.pow(E_w, 2))),
-                      tf.scalar_mul(2 * Q, tf.mul(labels_o, 
+                      tf.scalar_mul(2 * Q, tf.mul(tf.cast(labels_o, tf.float32), 
                                     tf.pow(np.e, tf.scalar_mul(-2.77/Q, E_w)))))
 
         return loss

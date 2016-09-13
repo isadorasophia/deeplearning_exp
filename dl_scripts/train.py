@@ -43,12 +43,13 @@ tf.app.flags.DEFINE_string('test_dir', '/tmp/amos_test',
                            """and checkpoint.""")
 
 # total of epochs
-tf.app.flags.DEFINE_string('n_epochs', 300000,
+tf.app.flags.DEFINE_string('n_epochs', 1,
                            """Number of epochs to be realized.""")
 
 # some important (hyper)parameters!
-MOMENTUM = 0.9
-EPSILON = 1.0
+BETA_ONE = 0.9
+BETA_TWO = 0.999
+EPSILON  = 0.0001
 
 def train(dataset):
     # initialize session
@@ -71,9 +72,7 @@ def train(dataset):
                                     FLAGS.learning_rate_decay_factor)
 
     # create an optimizer that performs gradient descent
-    opt = tf.train.AdamOptimizer(lr,
-                                 momentum=MOMENTUM,
-                                 epsilon=EPSILON)
+    opt = tf.train.AdamOptimizer(lr)
 
     opt_op = opt.minimize(SNN.loss)
 
@@ -81,12 +80,12 @@ def train(dataset):
     tf.initialize_all_variables().run()
 
     for step in range(FLAGS.n_epochs):
-        batch_x1, batch_x2, batch_y = amos.train.next_batch(FLAGS.batch_size)
+        batch_x1, batch_x2, batch_y = dataset.get_next_batch()
 
         _, loss_value = sess.run([opt_op, SNN.loss], feed_dict={
                                  SNN.x1: batch_x1, 
                                  SNN.x2: batch_x2, 
-                                 SNN.y_: batch_y})
+                                 SNN.y:  batch_y})
 
         assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
