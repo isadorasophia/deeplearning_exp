@@ -43,6 +43,12 @@ class dataset:
 
     # keep getting next (available) batch
     def get_next_batch(self):
+        # reached the end
+        if self.current_file >= len(self.files):
+            print ("Reached the end already, sorry!")
+
+            return None, None, None
+
         filename = self.files[self.current_file]
 
         # check if there is a valid candidate as a next extraction file

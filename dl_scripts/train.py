@@ -51,7 +51,7 @@ BETA_ONE = 0.9
 BETA_TWO = 0.999
 EPSILON  = 0.0001
 
-def train(dataset):
+def train(tr_dataset):
     # initialize session
     sess = tf.InteractiveSession()
 
@@ -80,7 +80,11 @@ def train(dataset):
     tf.initialize_all_variables().run()
 
     for step in range(FLAGS.n_epochs):
-        batch_x1, batch_x2, batch_y = dataset.get_next_batch()
+        batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch()
+
+        assert batch_x1 is not None or \
+               batch_x2 is not None or \
+               batch_y is not None, 'Model has reached the end!'
 
         _, loss_value = sess.run([opt_op, SNN.loss], feed_dict={
                                  SNN.x1: batch_x1, 
@@ -90,7 +94,7 @@ def train(dataset):
         assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
         if step % 5000 == 0 and step > 0:
-            saver.save(sess, 'model.ckpt')
+            saver.save(sess, "SNN", global_step = step)
 
 if __name__ == "__main__":
     train_dataset = amos.dataset(FLAGS.train_dir, FLAGS.batch_size)
