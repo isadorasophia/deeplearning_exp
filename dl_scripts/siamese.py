@@ -31,7 +31,7 @@ class siamese:
             self.a2 = self.network(self.x2)
 
         # label, a.k.a. correct output
-        self.y = tf.placeholder(tf.int32, shape = (batch_size), name = "y")
+        self.y = tf.placeholder(tf.int32, shape = (batch_size, 1), name = "y")
 
         # estimate loss
         self.loss = self.loss()
@@ -89,7 +89,7 @@ class siamese:
         fc8   = self.fc_layer(relu7, "fc8") 
         relu8 = tf.nn.relu(fc8)
 
-        prob   = self.new_fc_layer(relu8, 1000, 1, "prob")
+        prob  = self.new_fc_layer(relu8, 1000, 1, "prob")
 
         s_dict = None
 
@@ -175,26 +175,29 @@ class siamese:
         return tf.constant(self.s_dict[name][0], name="filter")
 
     def get_bias(self, name):
-        return tf.constant(self.s_dict[name][1], name="biases")
+        return tf.constant(self.s_dict[name][1], name="biases") 
 
     def get_fc_weight(self, name):
         return tf.constant(self.s_dict[name][0], name="weights")
 
     def loss(self):
-        # Y
-        # if x1 is older
-        labels_o = self.y
+        # Y:     if x1 is older
+        labels_o = tf.cast(self.y, tf.float32)
 
-        # 1 - Y
-        # if x1 is newer
-        labels_n = tf.sub(1, self.y, name="oneSubYi")
+        # 1 - Y: if x1 is newer
+        labels_n = tf.cast(tf.sub(1, self.y, name="oneSubYi"), tf.float32)
 
-        E_w = tf.reduce_mean(tf.abs(tf.sub(self.a1, self.a2)))
-        Q = tf.argmax(E_w)
+        # L1 normalization
+        # E_w = tf.reduce_mean(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
 
-        loss = tf.add(tf.scalar_mul(2/Q, tf.mul(tf.cast(labels_n, tf.float32), tf.pow(E_w, 2))),
-                      tf.scalar_mul(2 * Q, tf.mul(tf.cast(labels_o, tf.float32), 
-                                    tf.pow(np.e, tf.scalar_mul(-2.77/Q, E_w)))))
+        # L2 normalization
+        E_w = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
+
+        Q = tf.reduce_max(E_w, keep_dims = True)
+
+        loss = tf.add(tf.mul(2/Q, tf.mul(labels_n, tf.pow(E_w, 2))),
+                      tf.mul(2*Q, tf.mul(labels_o,
+                                         tf.pow (np.e, tf.mul(-2.77/Q, E_w))
+                     )))
 
         return loss
-
