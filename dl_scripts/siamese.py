@@ -35,6 +35,7 @@ class siamese:
 
         # estimate loss
         self.loss = self.loss()
+        self.accuracy = self.accuracy()
 
         # dropout porpuses
         # self.keep_prob = tf.placeholder("float", name = "dropout_keep_prob")
@@ -201,3 +202,13 @@ class siamese:
                      )))
 
         return loss
+
+    def accuracy(self):
+        # estimate result
+        res = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
+
+        correct_prediction = tf.equal(res, y)
+
+        final_ac = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+        
+        return final_ac
