@@ -39,6 +39,12 @@ tf.app.flags.DEFINE_string('data_dir', '/home/bonnibel/projects/deep_learning/te
 tf.app.flags.DEFINE_string('summaries_dir', '/home/bonnibel/projects/deep_learning/tensorflow/mnist_logs', 
                            'Summaries directory')
 
+
+tf.app.flags.DEFINE_string('tr_dataset', '/media/bonnibel/Jerônimo/AMOS_Data/dataset/evaluation/00000071/', 
+                           'Path to train dataset.')
+tf.app.flags.DEFINE_string('te_dataset', '/media/bonnibel/Jerônimo/AMOS_Data/dataset/evaluation/00000071/', 
+                           'Path to test dataset.')
+
 # total of epochs
 tf.app.flags.DEFINE_string('n_epochs_tr', 1,
                            """Number of epochs to be realized when training.""")
@@ -51,8 +57,12 @@ BETA_TWO = 0.999
 EPSILON  = 0.0001
 
 def train(tr_dataset, te_dataset):
+    # set config options
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+
     # initialize session
-    sess = tf.InteractiveSession()
+    sess = tf.InteractiveSession(config = config)
 
     # summary writers
     tr_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/train',
@@ -102,13 +112,22 @@ def train(tr_dataset, te_dataset):
             # add info. to summary
             tr_writer.add_summary(summary, step)
 
+            # make sure loss value still fits
+            assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+
         else:
             _, loss_value = sess.run([opt_op, SNN.loss], feed_dict={
                          SNN.x1: batch_x1, 
                          SNN.x2: batch_x2, 
                          SNN.y:  batch_y})
 
-        assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+            # make sure loss value still fits
+            assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+
+            loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
+            loss_averages_op = loss_averages.apply(loss_value)
+
+            tr_writer.scalar_summary('loss at %03d' % step, loss_value)
 
         if step % 5000 == 0 and step > 0:
             # save current session
@@ -143,8 +162,8 @@ def test(sess, SNN, te_writer, step):
         te_writer.add_summary(summary, step)
 
 if __name__ == "__main__":
-    train_dataset = amos.dataset(FLAGS.train_dir, FLAGS.batch_size)
-    test_dataset = amos.dataset(FLAGS.test_dir, FLAGS.batch_size)
+    train_dataset = amos.dataset(FLAGS.tr_dataset, FLAGS.batch_size)
+    test_dataset = amos.dataset(FLAGS.te_dataset, FLAGS.batch_size)
 
     # check if there is a valid directory and delete past entries
     if tf.gfile.Exists(FLAGS.summaries_dir):

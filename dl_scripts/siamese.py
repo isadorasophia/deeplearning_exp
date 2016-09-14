@@ -207,7 +207,7 @@ class siamese:
         # estimate result
         res = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
 
-        correct_prediction = tf.equal(res, y)
+        correct_prediction = tf.equal(res, tf.cast(self.y, tf.float32))
 
         final_ac = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
         

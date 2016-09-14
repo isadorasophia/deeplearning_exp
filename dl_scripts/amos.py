@@ -63,6 +63,11 @@ class dataset:
         x2 = self.get_batch(filename[X2], next_filename[X2], 'x2')
         y  = self.get_batch(filename[Y], next_filename[Y], 'y')
 
+        # get valid shape for output
+        y  = np.reshape(y, (10, 1)) 
+
+        print y.shape
+
         assert len(x1) != 100 or len(x2) != 100 or y != 100, 'Incorrect batch files!'
 
         self.batch_counter += 1
