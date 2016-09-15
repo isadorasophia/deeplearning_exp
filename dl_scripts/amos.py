@@ -28,9 +28,8 @@ class dataset:
 
             # get all the valid files from each directory
             for dir_ in subd:
-                t = [dir_ + '/' + f for f in sorted(os.listdir(dir_))]
-
-                self.files.append(t)
+                for f in sorted(os.listdir(dir_)):
+                    self.files.append(dir_ + '/' + f)
 
         # iterator for total files and batch files
         self.current_file = 0
