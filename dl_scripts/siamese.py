@@ -8,7 +8,6 @@ import numpy as np
 #             https://github.com/machrisaa/tensorflow-vgg/blob/master/vgg19.py
 
 IMG_DIM  = 224
-VGG_MEAN = [103.939, 116.779, 123.68]
 
 class siamese:
     def __init__(self, batch_size, weight_path):
@@ -19,8 +18,8 @@ class siamese:
         # pre-trained weights of siamese model, according to VGG 19
         self.s_dict = np.load(weight_path, encoding='latin1').item()
 
-        # image mean values from VGG model
-        self.image_mean = [103.939, 116.779, 123.68]
+        # image mean values from AMOS dataset
+        self.image_mean = [93.689, 91.849, 92.119]
 
         # activation values, i.e. output
         with tf.variable_scope("siamese") as scope:
@@ -48,7 +47,7 @@ class siamese:
         b, g, r = tf.split(3, 3, pre_x)
 
         # takes the mean value
-        bgr = tf.concat(3, [b - VGG_MEAN[0], g - VGG_MEAN[1], r - VGG_MEAN[2], ])
+        bgr = tf.concat(3, [b - self.img_mean[0], g - self.img_mean[1], r - self.img_mean[2], ])
 
         # make sure final shape meets the shape
         assert bgr.get_shape().as_list()[1:] == [224, 224, 3]
