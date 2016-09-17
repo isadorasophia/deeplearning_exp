@@ -32,8 +32,6 @@ class dataset:
 
                 self.files.append(t)
 
-	print self.files
-
         # iterator for total files and batch files
         self.current_file = 0
         self.batch_counter = 0
