@@ -19,7 +19,7 @@ class siamese:
         self.s_dict = np.load(weight_path, encoding='latin1').item()
 
         # image mean values from AMOS dataset
-        self.image_mean = [93.689, 91.849, 92.119]
+        self.img_mean = [93.689, 91.849, 92.119]
 
         # activation values, i.e. output
         with tf.variable_scope("siamese") as scope:
