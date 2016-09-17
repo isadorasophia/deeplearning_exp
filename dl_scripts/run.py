@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import tensorflow as tf
+import numpy as np
 
 import siamese
 import amos
@@ -16,9 +17,9 @@ tf.app.flags.DEFINE_float('initial_learning_rate', 0.01,
 tf.app.flags.DEFINE_float('learning_rate_decay_factor', 0.16,
                           """Learning rate decay factor.""")
 
-tf.app.flags.DEFINE_float('num_epochs_per_decay', 30.0,
+tf.app.flags.DEFINE_float('num_epochs_per_decay', 10.0,
                           """Epochs after which learning rate decays.""")
-tf.app.flags.DEFINE_float('batch_size', 10.0,
+tf.app.flags.DEFINE_float('batch_size', 1.0,
                           """Epochs after which learning rate decays.""")
 
 # training itself
@@ -30,7 +31,7 @@ tf.app.flags.DEFINE_string('pretrained_path', '/work/isophia/amos_learning/data/
                            """If specified, restore this pretrained model """
                             """before beginning any training.""")
 
-tf.app.flags.DEFINE_integer('num_gpus', 0,
+tf.app.flags.DEFINE_integer('num_gpus', 2,
                             """How many GPUs to use.""")
 
 # some important paths
@@ -57,85 +58,88 @@ BETA_TWO = 0.999
 EPSILON  = 0.0001
 
 def train(tr_dataset, te_dataset):
-    # set config options
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
+    with tf.device('cpu:0'):
+        # set config options
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        config.gpu_options.per_process_gpu_memory_fraction = 0.55
 
-    # initialize session
-    sess = tf.InteractiveSession(config = config)
+        # initialize session
+        sess = tf.InteractiveSession(config = config)
 
-    # summary writers
-    tr_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/train',
-                                        sess.graph)
-    te_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/test')
+        # summary writers
+        tr_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/train',
+						sess.graph)
+        te_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/test')
 
-    # initialize siamese neural network
-    SNN = siamese.siamese(FLAGS.batch_size, FLAGS.pretrained_path)
+        # initialize siamese neural network
+        SNN = siamese.siamese(FLAGS.batch_size, FLAGS.pretrained_path)
 
-    # create a variable to count the number of train() calls. This equals the
-    # number of batches processed * FLAGS.num_gpus
-    global_step = tf.get_variable('global_step', [], initializer = tf.constant_initializer(0), 
-                                  trainable=False)
+        # create a variable to count the number of train() calls. This equals the
+        # number of batches processed * FLAGS.num_gpus
+        global_step = tf.get_variable('global_step', [], initializer = tf.constant_initializer(0), 
+					  trainable=False)
 
-    decay_steps = int(FLAGS.batch_size * FLAGS.num_epochs_per_decay)
+        decay_steps = int(FLAGS.batch_size * FLAGS.num_epochs_per_decay)
 
-    # decay the learning rate exponentially based on the number of steps
-    lr = tf.train.exponential_decay(FLAGS.initial_learning_rate,
+        # decay the learning rate exponentially based on the number of steps
+        lr = tf.train.exponential_decay(FLAGS.initial_learning_rate,
                                     global_step,
                                     decay_steps,
                                     FLAGS.learning_rate_decay_factor)
 
-    # create an optimizer that performs gradient descent
-    opt = tf.train.AdamOptimizer(lr)
-    opt_op = opt.minimize(SNN.loss)
+        # create an optimizer that performs gradient descent
+        opt = tf.train.GradientDescentOptimizer(lr)
+        opt_op = opt.minimize(SNN.loss)
 
-    saver = tf.train.Saver()
-    tf.initialize_all_variables().run()
+        saver = tf.train.Saver()
+        tf.initialize_all_variables().run()
 
-    for step in range(FLAGS.n_epochs_tr):
-        batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch()
+        for step in range(FLAGS.n_epochs_tr):
+            with tf.device('/gpu:0'):
+                batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch()
 
-        assert batch_x1 is not None or \
-               batch_x2 is not None or \
-               batch_y is not None, 'Model has reached the end!'
+                assert batch_x1 is not None or \
+                   batch_x2 is not None or \
+                   batch_y is not None, 'Model has reached the end!'
 
-        if step % 100 == 0 and step > 0:
-            _, loss_value = sess.run([opt_op, SNN.loss], feed_dict={
-                                     SNN.x1: batch_x1, 
-                                     SNN.x2: batch_x2, 
-                                     SNN.y:  batch_y},
-                                     options      = run_options,
-                                     run_metadata = run_metadata)
+                if step % 100 == 0 and step > 0:
+                    _, loss_value = sess.run([opt_op, SNN.loss], feed_dict={
+                                             SNN.x1: batch_x1, 
+                                             SNN.x2: batch_x2, 
+                                             SNN.y:  batch_y},
+                                             options      = run_options,
+                                             run_metadata = run_metadata)
             
-            tr_writer.add_run_metadata(run_metadata, 'step%03d' % i)
+                    tr_writer.add_run_metadata(run_metadata, 'step%03d' % i)
 
-            # add info. to summary
-            tr_writer.add_summary(summary, step)
+                    # add info. to summary
+                    tr_writer.add_summary(summary, step)
 
-            # make sure loss value still fits
-            assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+                    # make sure loss value still fits
+                    assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
-        else:
-            _, loss_value = sess.run([opt_op, SNN.loss], feed_dict={
-                         SNN.x1: batch_x1, 
-                         SNN.x2: batch_x2, 
-                         SNN.y:  batch_y})
+                else:
+                    _, loss_value = sess.run([opt_op, SNN.loss], feed_dict={
+                                 SNN.x1: batch_x1, 
+                                 SNN.x2: batch_x2, 
+                                 SNN.y:  batch_y})
 
-            # make sure loss value still fits
-            assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+                    # make sure loss value still fits
+                    assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
-            loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
-            loss_averages_op = loss_averages.apply(loss_value)
+                    loss_averages_op = tf.reduce_mean(loss_value)
+                    loss_name = 'loss at %03d' % step
+        
+                    tr_writer.add_summary(loss_name, loss_value)
 
-            tr_writer.scalar_summary('loss at %03d' % step, loss_value)
+                if step % 5000 == 0 and step > 0:
+                    # save current session
+                    saver.save(sess, FLAGS.data_dir + "SNN", global_step = step)
+                    test(sess, SNN, te_writer, step)
 
-        if step % 5000 == 0 and step > 0:
-            # save current session
-            saver.save(sess, FLAGS.data_dir + "SNN", global_step = step)
-            test(sess, SNN, te_writer, step)
-
-    tr_writer.close()
-    te_writer.close()
+        tr_writer.close()
+        te_writer.close()
 
 def test(sess, SNN, te_writer, step):
     for i in range(FLAGS.n_epochs_te):
