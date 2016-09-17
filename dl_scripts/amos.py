@@ -28,8 +28,11 @@ class dataset:
 
             # get all the valid files from each directory
             for dir_ in subd:
-                for f in sorted(os.listdir(dir_)):
-                    self.files.append(dir_ + '/' + f)
+		t = [dir_ + '/' + f for f in sorted(os.listdir(dir_))]
+
+                self.files.append(t)
+
+	print self.files
 
         # iterator for total files and batch files
         self.current_file = 0
@@ -38,7 +41,8 @@ class dataset:
         # get batch size
         self.batch_size = batch_size
 
-        self.current_batches = {'x1': None, 'x2': None, 'y': None}
+        self.current_batch = {'x1': None, 'x2': None, 'y': None}
+	self.next_batch = {'x1': None, 'x2': None, 'y': None}
 
     # keep getting next (available) batch
     def get_next_batch(self):
@@ -63,11 +67,14 @@ class dataset:
         y  = self.get_batch(filename[Y], next_filename[Y], 'y')
 
         # get valid shape for output
-        y  = np.reshape(y, (10, 1)) 
+        y  = np.reshape(y, (self.batch_size, 1)) 
 
-        print y.shape
+        # sanity check
+        if len(x1) != self.batch_size or len(x2) != self.batch_size \
+           or len(y) != self.batch_size:
+            print(filename[X1], next_filename[X1])
 
-        assert len(x1) != 100 or len(x2) != 100 or y != 100, 'Incorrect batch files!'
+            return None, None, None
 
         self.batch_counter += 1
 
@@ -75,12 +82,18 @@ class dataset:
 
     # get a valid batch, given the filenames and current id
     def get_batch(self, filename, next_filename, cur_id):
-        if self.current_batches[cur_id] is None:
-            self.current_batches[cur_id] = self.open_pickle(filename)
+        if self.current_batch[cur_id] is None:
+            if self.next_batch[cur_id] is not None:
+                self.current_batch[cur_id] = self.next_batch[cur_id]
+
+                self.next_batch[cur_id] = None
+
+            else:
+                self.current_batch[cur_id] = self.open_pickle(filename)
 
             print ('Unpickling file...')
 
-        size = len(self.current_batches[cur_id])
+        size = len(self.current_batch[cur_id])
 
         start = self.batch_counter * self.batch_size
         end = start + self.batch_size
@@ -90,38 +103,44 @@ class dataset:
 
         if end - size > 0:
             extra = end - size
-            end =  size
+            end =   size
 
             split = True
-
-            self.current_file += 1
-            self.batch_counter = 0
+            
+            # if this is our last file from this batch
+            if cur_id == 'y':
+                self.current_file += 1
+                self.batch_counter = 0
 
         # assign variable and (possibly) clean up space!
-        final_b = self.current_batches[cur_id][int(start):int(end)]
+        final_b = self.current_batch[cur_id][int(start):int(end)]
         
         # del self.current_batches[cur_id][start:end]
 
-        if end - size == 0:
-            self.current_file += 1
-            self.batch_counter = 0
+        if not split and end - size == 0:
+            # if this is our last file from this batch
+            if cur_id == 'y':
+                self.current_file += 1
+                self.batch_counter = 0
 
-            del self.current_batches[cur_id]
+            self.current_batch[cur_id] = None
 
         if split:
             # if we are over it
             if not next_filename:
                 return None
 
-            self.current_batches[cur_id] = self.open_pickle(next_filename)
+            print ("q")
+
+            self.next_batch[cur_id] = self.open_pickle(next_filename)
 
             start = 0
             end = extra
 
-            final_b[batch_size - extra:batch_size] = self.self.current_batches[cur_id][start:end]
+            final_b = np.append(final_b, self.next_batch[cur_id][start:end], axis = 0)
 
             # clean up space!
-            # del self.current_batches[cur_id][start:end]
+            self.current_batch[cur_id] = None
 
         return final_b
 
