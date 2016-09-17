@@ -26,7 +26,7 @@ tf.app.flags.DEFINE_boolean('fine_tune', False,
                             """If set, randomly initialize the final layer """
                             """of weights in order to train the network on a """
                             """new task.""")
-tf.app.flags.DEFINE_string('pretrained_path', '../data/vgg19.npy',
+tf.app.flags.DEFINE_string('pretrained_path', '/work/isophia/amos_learning/data/input/vgg19.npy',
                            """If specified, restore this pretrained model """
                             """before beginning any training.""")
 
@@ -34,15 +34,15 @@ tf.app.flags.DEFINE_integer('num_gpus', 0,
                             """How many GPUs to use.""")
 
 # some important paths
-tf.app.flags.DEFINE_string('data_dir', '/home/bonnibel/projects/deep_learning/tensorflow/data/', 
+tf.app.flags.DEFINE_string('data_dir', '/work/isophia/amos_learning/data/output/', 
                            'Directory for storing data')
-tf.app.flags.DEFINE_string('summaries_dir', '/home/bonnibel/projects/deep_learning/tensorflow/mnist_logs', 
+tf.app.flags.DEFINE_string('summaries_dir', '/work/isophia/amos_learning/summaries/', 
                            'Summaries directory')
 
 
-tf.app.flags.DEFINE_string('tr_dataset', '/media/bonnibel/Jerônimo/AMOS_Data/dataset/evaluation/00000071/', 
+tf.app.flags.DEFINE_string('tr_dataset', '/datasets/isophia/AMOS/train/', 
                            'Path to train dataset.')
-tf.app.flags.DEFINE_string('te_dataset', '/media/bonnibel/Jerônimo/AMOS_Data/dataset/evaluation/00000071/', 
+tf.app.flags.DEFINE_string('te_dataset', '/datasets/isophia/AMOS/test/', 
                            'Path to test dataset.')
 
 # total of epochs
