@@ -114,7 +114,7 @@ def train(tr_dataset, te_dataset):
                                              options      = run_options,
                                              run_metadata = run_metadata)
             
-                    tr_writer.add_run_metadata(run_metadata, 'metadata')
+                    tr_writer.add_run_metadata(run_metadata, "%03d" % step)
 
                     # make sure loss value still fits
                     assert not np.isnan(loss_value.any()), 'Model diverged with loss = NaN'
