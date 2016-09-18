@@ -135,7 +135,7 @@ class dataset:
             start = 0
             end = extra
 
-            final_b = np.append(final_b, self.next_batch[cur_id][start:end], axis = 0)
+            final_b = np.append(final_b, self.next_batch[cur_id][int(start):int(end)], axis = 0)
 
             # clean up space!
             self.current_batch[cur_id] = None

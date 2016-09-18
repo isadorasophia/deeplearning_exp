@@ -69,24 +69,24 @@ class siamese:
         conv3_4 = self.conv_layer(conv3_3, "conv3_4")
         pool3 = self.max_pool(conv3_4, "pool3")                # 28 x 28 x 512
 
-        conv4_1 = self.conv_layer(pool3, "conv4_1")
-        conv4_2 = self.conv_layer(conv4_1, "conv4_2")
-        conv4_3 = self.conv_layer(conv4_2, "conv4_3")
-        conv4_4 = self.conv_layer(conv4_3, "conv4_4")
+        conv4_1 = self.rand_conv_layer(pool3, "conv4_1")
+        conv4_2 = self.rand_conv_layer(conv4_1, "conv4_2")
+        conv4_3 = self.rand_conv_layer(conv4_2, "conv4_3")
+        conv4_4 = self.rand_conv_layer(conv4_3, "conv4_4")
         pool4 = self.max_pool(conv4_4, "pool4")                # 14 x 14 x 512
 
-        conv5_1 = self.conv_layer(pool4, "conv5_1")
-        conv5_2 = self.conv_layer(conv5_1, "conv5_2")
-        conv5_3 = self.conv_layer(conv5_2, "conv5_3")
-        conv5_4 = self.conv_layer(conv5_3, "conv5_4")
+        conv5_1 = self.rand_conv_layer(pool4, "conv5_1")
+        conv5_2 = self.rand_conv_layer(conv5_1, "conv5_2")
+        conv5_3 = self.rand_conv_layer(conv5_2, "conv5_3")
+        conv5_4 = self.rand_conv_layer(conv5_3, "conv5_4")
         pool5 = self.max_pool(conv5_4, "pool5")                # 7 x 7 x 512
 
         # fully connected
-        fc6 = self.fc_layer(pool5, "fc6")                      # 1 x 1 x 4096
+        fc6 = self.new_fc_layer(pool5, 25088, 4096, "fc6")     # 1 x 1 x 4096
         assert fc6.get_shape().as_list()[1:] == [4096]         # make sure it fits
         relu6 = tf.nn.relu(fc6)
 
-        fc7   = self.fc_layer(relu6, "fc7")
+        fc7   = self.new_fc_layer(relu6, 4096, 4096, "fc7")
         relu7 = tf.nn.relu(fc7)                                # 1 x 1 x 4096
 
         prob  = self.new_fc_layer(relu7, 4096, 1, "prob")
@@ -106,7 +106,7 @@ class siamese:
         with tf.variable_scope(name, reuse = None) as scope:
             filt = self.get_filter(name)
             b = self.get_bias(name)
-
+            
             # initialize values
             conv_filt = tf.get_variable(
                         "W",
@@ -124,6 +124,30 @@ class siamese:
 
         return relu
 
+    def rand_conv_layer(self, bottom, name, recover_shape = True):
+        with tf.variable_scope(name, reuse = None) as scope:
+            filt = self.get_filter(name)
+            b    = self.get_bias(name)
+
+            # initialize values
+            conv_filt = tf.get_variable(
+                        "W",
+                        shape = filt.get_shape(),
+                        initializer = tf.random_normal_initializer(0., 0.01)
+                        )
+            conv_bias = tf.get_variable(
+                        "b",
+                        shape = b.get_shape(),
+                        initializer = tf.constant_initializer(0.)
+                        )
+
+            conv = tf.nn.conv2d(bottom, conv_filt, [1, 1, 1, 1], padding = 'SAME')
+            bias = tf.nn.bias_add(conv, conv_bias)
+            relu = tf.nn.relu(bias, name = name)
+
+        return relu
+            
+
     def fc_layer(self, bottom, name):
         with tf.variable_scope(name, reuse = None):
             shape = bottom.get_shape().as_list()
@@ -134,6 +158,9 @@ class siamese:
 
             w = self.get_fc_weight(name)
             b = self.get_bias(name)
+
+            print w
+            print b
 
             weights = tf.get_variable(
                       "W",
