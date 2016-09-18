@@ -36,6 +36,9 @@ class siamese:
         self.loss = self.loss()
         self.accuracy = self.accuracy()
 
+        self.accuracy_sum = tf.scalar_summary("accuracy", self.accuracy)
+        self.loss_sum = tf.scalar_summary("loss", tf.reduce_mean(self.loss))
+
         # dropout porpuses
         # self.keep_prob = tf.placeholder("float", name = "dropout_keep_prob")
 
@@ -209,5 +212,5 @@ class siamese:
         correct_prediction = tf.equal(res, tf.cast(self.y, tf.float32))
 
         final_ac = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-        
+ 
         return final_ac
