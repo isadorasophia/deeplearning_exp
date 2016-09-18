@@ -12,7 +12,7 @@ import amos
 FLAGS = tf.app.flags.FLAGS
 
 # flags regarding data training
-tf.app.flags.DEFINE_float('initial_learning_rate', 0.01,
+tf.app.flags.DEFINE_float('initial_learning_rate', 0.0001,
                           """Initial learning rate.""")
 tf.app.flags.DEFINE_float('learning_rate_decay_factor', 0.16,
                           """Learning rate decay factor.""")
@@ -89,7 +89,7 @@ def train(tr_dataset, te_dataset):
                                     FLAGS.learning_rate_decay_factor)
 
         # create an optimizer that performs gradient descent
-        opt = tf.train.GradientDescentOptimizer(lr)
+        opt = tf.train.AdamOptimizer(lr)
         opt_op = opt.minimize(SNN.loss)
 
         saver = tf.train.Saver()
@@ -132,15 +132,15 @@ def train(tr_dataset, te_dataset):
 
                     tr_writer.add_summary(loss_summary, step)
 
-                if step % 10 == 0 and step > 0:
+                if step % 5000 == 0 and step > 0:
                     # save current session
                     saver.save(sess, FLAGS.data_dir + "SNN", global_step = step)
-                    test(sess, SNN, te_writer, step)
+                    test(sess, SNN, te_writer, step, te_dataset)
 
         tr_writer.close()
         te_writer.close()
 
-def test(sess, SNN, te_writer, step):
+def test(sess, SNN, te_writer, step, te_dataset):
     for i in range(FLAGS.n_epochs_te):
         batch_x1, batch_x2, batch_y = te_dataset.get_next_batch()
 
@@ -154,7 +154,7 @@ def test(sess, SNN, te_writer, step):
                                                       SNN.x2: batch_x2,
                                                       SNN.y:  batch_y })
 
-        te_writer.add_summary(summary_sum, step)
+        te_writer.add_summary(accuracy_sum, step)
 
 if __name__ == "__main__":
     train_dataset = amos.dataset(FLAGS.tr_dataset, FLAGS.batch_size)

@@ -87,12 +87,9 @@ class siamese:
         relu6 = tf.nn.relu(fc6)
 
         fc7   = self.fc_layer(relu6, "fc7")
-        relu7 = tf.nn.relu(fc7)                                # 1 x 1 x 1000
+        relu7 = tf.nn.relu(fc7)                                # 1 x 1 x 4096
 
-        fc8   = self.fc_layer(relu7, "fc8") 
-        relu8 = tf.nn.relu(fc8)
-
-        prob  = self.new_fc_layer(relu8, 1000, 1, "prob")
+        prob  = self.new_fc_layer(relu7, 4096, 1, "prob")
 
         s_dict = None
 
