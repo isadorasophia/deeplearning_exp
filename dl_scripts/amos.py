@@ -46,19 +46,24 @@ class dataset:
     def get_next_batch(self):
         # reached the end
         if self.current_file >= len(self.files):
-            print ("Reached the end already, sorry!")
+            print ("Reached the end already!")
 
-            return None, None, None
+            self.next_batch    = {'x1': None, 'x2': None, 'y': None}
+            self.current_batch = {'x1': None, 'x2': None, 'y': None}
+
+            self.current_file  = 0
+            self.batch_counter = 0
 
         filename = self.files[self.current_file]
-
+   
         # check if there is a valid candidate as a next extraction file
         if len(self.files) > self.current_file + 1:
             next_filename = self.files[self.current_file + 1]
-
         else:
-            # take a None object for each candidate
-            next_filename = {'x1': None, 'x2': None, 'y': None}
+            next_filename = None
+
+        if filename is None or next_filename is None:
+            return None, None, None
 
         x1 = self.get_batch(filename[X1], next_filename[X1], 'x1')
         x2 = self.get_batch(filename[X2], next_filename[X2], 'x2')
@@ -68,9 +73,16 @@ class dataset:
         y  = np.reshape(y, (self.batch_size, 1)) 
 
         # sanity check
-        if len(x1) != self.batch_size or len(x2) != self.batch_size \
+        if x1 is None or x2 is None or y is None \
+           or len(x1) != self.batch_size or len(x2) != self.batch_size \
            or len(y) != self.batch_size:
             print(filename[X1], next_filename[X1])
+
+            self.next_batch = {'x1': None, 'x2': None, 'y': None}
+            self.current_batch = {'x1': None, 'x2': None, 'y': None}
+
+            self.current_file += 1
+            self.batch_counter = 0
 
             return None, None, None
 
@@ -128,9 +140,10 @@ class dataset:
             if not next_filename:
                 return None
 
-            print ("q")
-
             self.next_batch[cur_id] = self.open_pickle(next_filename)
+    
+            if self.next_batch[cur_id] == None:
+                return None
 
             start = 0
             end = extra
@@ -144,12 +157,18 @@ class dataset:
 
     # extract pickle file
     def open_pickle(self, path):
-        f = open(path, "rb")
-
+        try:
+            f = open(path, "rb")
+        except IOError:
+            return None
+    
         # disable garbage collector
         gc.disable()
-
-        p = pickle.load(f)
+        
+        try:
+            p = pickle.load(f)
+        except EOFError:
+            p = None
 
         # enable garbage collector again
         gc.enable()

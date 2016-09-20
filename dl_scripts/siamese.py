@@ -89,7 +89,8 @@ class siamese:
         fc7   = self.new_fc_layer(relu6, 4096, 4096, "fc7")
         relu7 = tf.nn.relu(fc7)                                # 1 x 1 x 4096
 
-        prob  = self.new_fc_layer(relu7, 4096, 1, "prob")
+        fc8   = self.new_fc_layer(relu7, 4096, 50, "fc8")
+        prob  = tf.nn.relu(fc8)
 
         s_dict = None
 
@@ -214,13 +215,13 @@ class siamese:
         # 1 - Y: if x1 is newer
         labels_n = tf.cast(tf.sub(1, self.y, name="oneSubYi"), tf.float32)
 
-        # L1 normalization
-        # E_w = tf.reduce_mean(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
+        # L1 normalization!
+        E_w = tf.reduce_sum(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
 
         # L2 normalization
-        E_w = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
+        # E_w = .nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
 
-        Q = tf.reduce_max(E_w, keep_dims = True)
+        Q = tf.cast(10, tf.float32)
 
         loss = tf.add(tf.mul(2/Q, tf.mul(labels_n, tf.pow(E_w, 2))),
                       tf.mul(2*Q, tf.mul(labels_o,
@@ -231,7 +232,10 @@ class siamese:
 
     def accuracy(self):
         # estimate result
-        res = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
+        # res = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
+
+        # estimate result based on l1 norm
+        res = tf.reduce_sum(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
 
         correct_prediction = tf.equal(res, tf.cast(self.y, tf.float32))
 

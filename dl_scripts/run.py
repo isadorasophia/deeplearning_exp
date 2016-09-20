@@ -12,7 +12,7 @@ import amos
 FLAGS = tf.app.flags.FLAGS
 
 # flags regarding data training
-tf.app.flags.DEFINE_float('initial_learning_rate', 0.0001,
+tf.app.flags.DEFINE_float('initial_learning_rate', 0.00005,
                           """Initial learning rate.""")
 tf.app.flags.DEFINE_float('learning_rate_decay_factor', 0.16,
                           """Learning rate decay factor.""")
@@ -83,10 +83,12 @@ def train(tr_dataset, te_dataset):
         decay_steps = int(FLAGS.batch_size * FLAGS.num_epochs_per_decay)
 
         # decay the learning rate exponentially based on the number of steps
-        lr = tf.train.exponential_decay(FLAGS.initial_learning_rate,
-                                    global_step,
-                                    decay_steps,
-                                    FLAGS.learning_rate_decay_factor)
+        # lr = tf.train.exponential_decay(FLAGS.initial_learning_rate,
+        #                           global_step,
+        #                           decay_steps,
+        #                           FLAGS.learning_rate_decay_factor)
+        
+        lr = FLAGS.initial_learning_rate
 
         # create an optimizer that performs gradient descent
         opt = tf.train.AdamOptimizer(lr)
@@ -99,9 +101,10 @@ def train(tr_dataset, te_dataset):
             with tf.device('/gpu:1'):
                 batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch()
 
-                assert batch_x1 is not None or \
-                   batch_x2 is not None or \
-                   batch_y is not None, 'Model has reached the end!'
+                while batch_x1 is None or \
+                   batch_x2 is None or \
+                   batch_y is None:
+                    batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch()
 
                 if step % 100 == 0 and step > 0:
                     run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
@@ -128,6 +131,8 @@ def train(tr_dataset, te_dataset):
  
                     # make sure loss value still fits
                     assert not np.isnan(loss_value.any()), 'Model diverged with loss = NaN'
+    
+                    print "Step %d: " % step
                     print loss_value
 
                     tr_writer.add_summary(loss_summary, step)
