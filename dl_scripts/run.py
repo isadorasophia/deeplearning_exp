@@ -62,7 +62,7 @@ def train(tr_dataset, te_dataset):
         # set config options
         config = tf.ConfigProto(allow_soft_placement = True)
         config.gpu_options.allow_growth = True
-        config.gpu_options.per_process_gpu_memory_fraction = 0.8
+        config.gpu_options.per_process_gpu_memory_fraction = 0.7
 
         # initialize session
         sess = tf.InteractiveSession(config = config)
@@ -96,6 +96,13 @@ def train(tr_dataset, te_dataset):
 
         saver = tf.train.Saver()
         tf.initialize_all_variables().run()
+
+	# check if there is a valid checkpoint
+	ckpt = tf.train.get_checkpoint_state(FLAGS.data_dir)
+
+	if ckpt and ckpt.model_checkpoint_path:
+            saver.restore(sess, ckpt.model_checkpoint_path)
+            print "Restoring checkpoint..."
 
         for step in range(FLAGS.n_epochs_tr):
             with tf.device('/gpu:1'):

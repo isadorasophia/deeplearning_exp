@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import random
+
 import os
 import gc
     
@@ -31,6 +33,8 @@ class dataset:
 		t = [dir_ + '/' + f for f in sorted(os.listdir(dir_))]
 
                 self.files.append(t)
+
+        self.files = random.shuffle(self.files)
 
         # iterator for total files and batch files
         self.current_file = 0

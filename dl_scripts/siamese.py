@@ -219,7 +219,7 @@ class siamese:
         E_w = tf.reduce_sum(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
 
         # L2 normalization
-        # E_w = .nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
+        # E_w = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
 
         Q = tf.cast(10, tf.float32)
 
@@ -236,9 +236,14 @@ class siamese:
 
         # estimate result based on l1 norm
         res = tf.reduce_sum(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
+        
+        f1 = lambda x: tf.constant(1.0) if tf.less(res, 0.5) is True else tf.constant(0.0)
+
+        res = tf.map_fn(f1, res)
 
         correct_prediction = tf.equal(res, tf.cast(self.y, tf.float32))
 
         final_ac = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
  
         return final_ac
+
