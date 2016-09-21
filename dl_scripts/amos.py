@@ -30,7 +30,7 @@ class dataset:
 
             # get all the valid files from each directory
             for dir_ in subd:
-		t = [dir_ + '/' + f for f in sorted(os.listdir(dir_))]
+                t = [dir_ + '/' + f for f in sorted(os.listdir(dir_))]
 
                 self.files.append(t)
 
@@ -44,7 +44,7 @@ class dataset:
         self.batch_size = batch_size
 
         self.current_batch = {'x1': None, 'x2': None, 'y': None}
-	self.next_batch = {'x1': None, 'x2': None, 'y': None}
+        self.next_batch = {'x1': None, 'x2': None, 'y': None}
 
     # keep getting next (available) batch
     def get_next_batch(self):
@@ -117,7 +117,7 @@ class dataset:
 
         if end - size > 0:
             extra = end - size
-            end =   size
+            end   = size
 
             split = True
             
