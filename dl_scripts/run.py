@@ -57,6 +57,9 @@ BETA_ONE = 0.9
 BETA_TWO = 0.999
 EPSILON  = 0.0001
 
+# iterator for test evaluation 
+i_test   = 0
+
 def train(tr_dataset, te_dataset):
     with tf.device('gpu:1'):
         # set config options
@@ -66,6 +69,7 @@ def train(tr_dataset, te_dataset):
 
         # initialize session
         sess = tf.InteractiveSession(config = config)
+        i_test = 0 # iterator for test evaluation
 
         # summary writers
         tr_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/train',
@@ -166,7 +170,9 @@ def test(sess, SNN, te_writer, step, te_dataset):
                                                       SNN.x2: batch_x2,
                                                       SNN.y:  batch_y })
 
-        te_writer.add_summary(accuracy_sum, step)
+        i_test += 1
+
+        te_writer.add_summary(accuracy_sum, i_test)
 
 if __name__ == "__main__":
     train_dataset = amos.dataset(FLAGS.tr_dataset, FLAGS.batch_size)
