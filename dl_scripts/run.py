@@ -73,7 +73,7 @@ def train(tr_dataset, te_dataset):
 
         # summary writers
         tr_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/train',
-						sess.graph)
+                      sess.graph)
         te_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/test')
 
         # initialize siamese neural network
@@ -82,7 +82,7 @@ def train(tr_dataset, te_dataset):
         # create a variable to count the number of train() calls. This equals the
         # number of batches processed * FLAGS.num_gpus
         global_step = tf.get_variable('global_step', [], initializer = tf.constant_initializer(0), 
-					  trainable=False)
+                      trainable=False)
 
         decay_steps = int(FLAGS.batch_size * FLAGS.num_epochs_per_decay)
 
@@ -101,10 +101,10 @@ def train(tr_dataset, te_dataset):
         saver = tf.train.Saver()
         tf.initialize_all_variables().run()
 
-	# check if there is a valid checkpoint
-	ckpt = tf.train.get_checkpoint_state(FLAGS.data_dir)
+        # check if there is a valid checkpoint
+        ckpt = tf.train.get_checkpoint_state(FLAGS.data_dir)
 
-	if ckpt and ckpt.model_checkpoint_path:
+        if ckpt and ckpt.model_checkpoint_path:
             saver.restore(sess, ckpt.model_checkpoint_path)
             print "Restoring checkpoint..."
 
