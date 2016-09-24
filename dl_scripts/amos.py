@@ -34,7 +34,7 @@ class dataset:
 
                 self.files.append(t)
 
-        self.files = random.shuffle(self.files)
+        random.shuffle(self.files)
 
         # iterator for total files and batch files
         self.current_file = 0
@@ -47,10 +47,10 @@ class dataset:
         self.next_batch = {'x1': None, 'x2': None, 'y': None}
 
     # keep getting next (available) batch
-    def get_next_batch(self):
+    def get_next_batch(self, restart = False):
         # reached the end
-        if self.current_file >= len(self.files):
-            print ("Reached the end already!")
+        if restart or self.current_file >= len(self.files):
+            random.shuffle(self.files)
 
             self.next_batch    = {'x1': None, 'x2': None, 'y': None}
             self.current_batch = {'x1': None, 'x2': None, 'y': None}
@@ -105,7 +105,11 @@ class dataset:
             else:
                 self.current_batch[cur_id] = self.open_pickle(filename)
 
-            print ('Unpickling file...')
+            print 'Unpickling file: ' + filename
+
+        # sanity check for object
+        if self.current_batch[cur_id] is None:
+            return None
 
         size = len(self.current_batch[cur_id])
 
@@ -146,7 +150,7 @@ class dataset:
 
             self.next_batch[cur_id] = self.open_pickle(next_filename)
     
-            if self.next_batch[cur_id] == None:
+            if self.next_batch[cur_id] is None:
                 return None
 
             start = 0

@@ -57,9 +57,6 @@ BETA_ONE = 0.9
 BETA_TWO = 0.999
 EPSILON  = 0.0001
 
-# iterator for test evaluation 
-i_test   = 0
-
 def train(tr_dataset, te_dataset):
     with tf.device('gpu:1'):
         # set config options
@@ -108,6 +105,9 @@ def train(tr_dataset, te_dataset):
             saver.restore(sess, ckpt.model_checkpoint_path)
             print "Restoring checkpoint..."
 
+        # iterator for test evaluation
+        i_test = 0
+
         for step in range(FLAGS.n_epochs_tr):
             with tf.device('/gpu:1'):
                 batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch()
@@ -115,7 +115,7 @@ def train(tr_dataset, te_dataset):
                 while batch_x1 is None or \
                    batch_x2 is None or \
                    batch_y is None:
-                    batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch()
+                    batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch(restart = True)
 
                 if step % 100 == 0 and step > 0:
                     run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
@@ -151,18 +151,20 @@ def train(tr_dataset, te_dataset):
                 if step % 5000 == 0 and step > 0:
                     # save current session
                     saver.save(sess, FLAGS.data_dir + "SNN", global_step = step)
-                    test(sess, SNN, te_writer, step, te_dataset)
+                    
+                    # estimate evaluation
+                    i_test += test(sess, SNN, te_writer, i_test, te_dataset)
 
         tr_writer.close()
         te_writer.close()
 
-def test(sess, SNN, te_writer, step, te_dataset):
+def test(sess, SNN, te_writer, it, te_dataset):
     for i in range(FLAGS.n_epochs_te):
         batch_x1, batch_x2, batch_y = te_dataset.get_next_batch()
 
         # test data is done already, go home
         if batch_x1 is None or batch_x2 is None or batch_y is None:
-            return
+            return it
 
         a1, a2, accuracy_sum = sess.run([SNN.a1, SNN.a2, SNN.accuracy_sum], 
                                          feed_dict = {
@@ -170,9 +172,11 @@ def test(sess, SNN, te_writer, step, te_dataset):
                                                       SNN.x2: batch_x2,
                                                       SNN.y:  batch_y })
 
-        i_test += 1
+        it += 1
 
-        te_writer.add_summary(accuracy_sum, i_test)
+        te_writer.add_summary(accuracy_sum, it)
+
+    return it
 
 if __name__ == "__main__":
     train_dataset = amos.dataset(FLAGS.tr_dataset, FLAGS.batch_size)
