@@ -122,7 +122,7 @@ def train(tr_dataset, te_dataset):
                                              SNN.x2: batch_x2, 
                                              SNN.y:  batch_y,
                                              SNN.training: tf.Variable(True, name = 'training'),
-                                             SNN.dropout_rate: 1.0},
+                                             SNN.dropout_rate: 0.5},
                                              options      = run_options,
                                              run_metadata = run_metadata)
             
@@ -138,7 +138,7 @@ def train(tr_dataset, te_dataset):
                                                                         SNN.x2: batch_x2, 
                                                                         SNN.y:  batch_y,
                                                                         SNN.training: tf.Variable(True, name = 'training'),
-                                                                        SNN.dropout_rate: 1.0})
+                                                                        SNN.dropout_rate: 0.5})
  
                     # make sure loss value still fits
                     assert not np.isnan(loss_value.any()), 'Model diverged with loss = NaN'
