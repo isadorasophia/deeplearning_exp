@@ -166,7 +166,7 @@ def test(sess, SNN, te_writer, it, te_dataset):
         while batch_x1 is None \
            or batch_x2 is None \
            or batch_y is None:
-            batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch(restart = True)
+            batch_x1, batch_x2, batch_y = te_dataset.get_next_batch(restart = True)
 
         a1, a2, accuracy_sum = sess.run([SNN.a1, SNN.a2, SNN.accuracy_sum], 
                                          feed_dict = {
