@@ -21,6 +21,12 @@ class siamese:
         # image mean values from AMOS dataset
         self.img_mean = [93.689, 91.849, 92.119]
 
+        # is this a training session?
+        self.training = tf.Variable(True, name='training')
+
+        # define dropout rate
+        self.dropout_rate = tf.placeholder(tf.float32, name = "dropout_rate")
+
         # activation values, i.e. output
         with tf.variable_scope("siamese") as scope:
             self.a1 = self.network(self.x1)
@@ -38,9 +44,6 @@ class siamese:
 
         self.accuracy_sum = tf.scalar_summary("accuracy", self.accuracy)
         self.loss_sum = tf.scalar_summary("loss", tf.reduce_mean(self.loss))
-
-        # dropout porpuses
-        # self.keep_prob = tf.placeholder("float", name = "dropout_keep_prob")
 
     def network(self, x):
         # receives x := BGR image of size [batch, 3, height, width]
@@ -84,13 +87,20 @@ class siamese:
         # fully connected
         fc6 = self.new_fc_layer(pool5, 25088, 4096, "fc6")     # 1 x 1 x 4096
         assert fc6.get_shape().as_list()[1:] == [4096]         # make sure it fits
+   
         relu6 = tf.nn.relu(fc6)
 
-        fc7   = self.new_fc_layer(relu6, 4096, 4096, "fc7")
+        drop6 = tf.nn.dropout(fc6, self.dropout_rate)
+
+        fc7   = self.new_fc_layer(drop6, 4096, 4096, "fc7")
         relu7 = tf.nn.relu(fc7)                                # 1 x 1 x 4096
 
-        fc8   = self.new_fc_layer(relu7, 4096, 50, "fc8")
-        prob  = tf.nn.relu(fc8)
+        drop7 = tf.nn.dropout(fc7, self.dropout_rate)
+
+        fc8   = self.new_fc_layer(drop7, 4096, 50, "fc8")
+        relu8  = tf.nn.relu(fc8)
+
+        prob = tf.nn.dropout(relu8, self.dropout_rate)
 
         s_dict = None
 
@@ -121,7 +131,11 @@ class siamese:
 
             conv = tf.nn.conv2d(bottom, conv_filt, [1, 1, 1, 1], padding = 'SAME')
             bias = tf.nn.bias_add(conv, conv_bias)
-            relu = tf.nn.relu(bias, name = name)
+
+            # apply batch norm
+            norm = tf.contrib.layers.batch_norm(bias, is_training = self.training)
+
+            relu = tf.nn.relu(norm, name = name)
 
         return relu
 
@@ -134,7 +148,7 @@ class siamese:
             conv_filt = tf.get_variable(
                         "W",
                         shape = filt.get_shape(),
-                        initializer = tf.random_normal_initializer(0., 0.01)
+                        initializer = tf.contrib.layers.xavier_initializer_conv2d()
                         )
             conv_bias = tf.get_variable(
                         "b",
@@ -144,6 +158,10 @@ class siamese:
 
             conv = tf.nn.conv2d(bottom, conv_filt, [1, 1, 1, 1], padding = 'SAME')
             bias = tf.nn.bias_add(conv, conv_bias)
+
+            # apply batch norm
+            norm = tf.contrib.layers.batch_norm(bias, is_training = self.training)
+
             relu = tf.nn.relu(bias, name = name)
 
         return relu
@@ -159,9 +177,6 @@ class siamese:
 
             w = self.get_fc_weight(name)
             b = self.get_bias(name)
-
-            print w
-            print b
 
             weights = tf.get_variable(
                       "W",
@@ -185,7 +200,7 @@ class siamese:
             weights = tf.get_variable(
                       "W",
                       shape = [in_size, out_size],
-                      initializer = tf.random_normal_initializer(0., 0.01)
+                      initializer = tf.contrib.layers.xavier_initializer()
                       )
 
             bias = tf.get_variable(

@@ -14,12 +14,12 @@ FLAGS = tf.app.flags.FLAGS
 # flags regarding data training
 tf.app.flags.DEFINE_float('initial_learning_rate', 0.00005,
                           """Initial learning rate.""")
-tf.app.flags.DEFINE_float('learning_rate_decay_factor', 0.16,
+tf.app.flags.DEFINE_float('learning_rate_decay_factor', 0.96,
                           """Learning rate decay factor.""")
 
-tf.app.flags.DEFINE_float('num_epochs_per_decay', 10.0,
+tf.app.flags.DEFINE_float('num_epochs_per_decay', 1000.0,
                           """Epochs after which learning rate decays.""")
-tf.app.flags.DEFINE_float('batch_size', 10.0,
+tf.app.flags.DEFINE_integer('batch_size', 25,
                           """Epochs after which learning rate decays.""")
 
 # training itself
@@ -58,11 +58,11 @@ BETA_TWO = 0.999
 EPSILON  = 0.0001
 
 def train(tr_dataset, te_dataset):
-    with tf.device('gpu:1'):
+    with tf.device('gpu:0'):
         # set config options
         config = tf.ConfigProto(allow_soft_placement = True)
         config.gpu_options.allow_growth = True
-        config.gpu_options.per_process_gpu_memory_fraction = 0.7
+        # config.gpu_options.per_process_gpu_memory_fraction = 0.7
 
         # initialize session
         sess = tf.InteractiveSession(config = config)
@@ -76,24 +76,20 @@ def train(tr_dataset, te_dataset):
         # initialize siamese neural network
         SNN = siamese.siamese(FLAGS.batch_size, FLAGS.pretrained_path)
 
-        # create a variable to count the number of train() calls. This equals the
-        # number of batches processed * FLAGS.num_gpus
-        global_step = tf.get_variable('global_step', [], initializer = tf.constant_initializer(0), 
-                      trainable=False)
-
-        decay_steps = int(FLAGS.batch_size * FLAGS.num_epochs_per_decay)
+        # batch counter
+        batch = tf.Variable(0)
+        decay_step = int(FLAGS.batch_size * FLAGS.num_epochs_per_decay)
+        decay_rate = FLAGS.learning_rate_decay_factor
 
         # decay the learning rate exponentially based on the number of steps
-        # lr = tf.train.exponential_decay(FLAGS.initial_learning_rate,
-        #                           global_step,
-        #                           decay_steps,
-        #                           FLAGS.learning_rate_decay_factor)
-        
-        lr = FLAGS.initial_learning_rate
+        lr = tf.train.exponential_decay(FLAGS.initial_learning_rate,
+                                  tf.mul(batch, FLAGS.batch_size),           # current index of dataset
+                                  decay_step,                              # decay step
+                                  decay_rate)                              # decay rate
 
         # create an optimizer that performs gradient descent
         opt = tf.train.AdamOptimizer(lr)
-        opt_op = opt.minimize(SNN.loss)
+        opt_op = opt.minimize(SNN.loss, global_step = batch)
 
         saver = tf.train.Saver()
         tf.initialize_all_variables().run()
@@ -109,7 +105,7 @@ def train(tr_dataset, te_dataset):
         i_test = 0
 
         for step in range(FLAGS.n_epochs_tr):
-            with tf.device('/gpu:1'):
+            with tf.device('/gpu:0'):
                 batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch()
 
                 while batch_x1 is None or \
@@ -124,7 +120,9 @@ def train(tr_dataset, te_dataset):
                     _, loss_value = sess.run([opt_op, SNN.loss], feed_dict={
                                              SNN.x1: batch_x1, 
                                              SNN.x2: batch_x2, 
-                                             SNN.y:  batch_y},
+                                             SNN.y:  batch_y,
+                                             SNN.training: tf.Variable(True, name = 'training'),
+                                             SNN.dropout_rate: 1.0},
                                              options      = run_options,
                                              run_metadata = run_metadata)
             
@@ -138,7 +136,9 @@ def train(tr_dataset, te_dataset):
                                                             feed_dict={
                                                                         SNN.x1: batch_x1, 
                                                                         SNN.x2: batch_x2, 
-                                                                        SNN.y:  batch_y})
+                                                                        SNN.y:  batch_y,
+                                                                        SNN.training: tf.Variable(True, name = 'training'),
+                                                                        SNN.dropout_rate: 1.0})
  
                     # make sure loss value still fits
                     assert not np.isnan(loss_value.any()), 'Model diverged with loss = NaN'
@@ -163,14 +163,18 @@ def test(sess, SNN, te_writer, it, te_dataset):
         batch_x1, batch_x2, batch_y = te_dataset.get_next_batch()
 
         # test data is done already, go home
-        if batch_x1 is None or batch_x2 is None or batch_y is None:
-            return it
+        while batch_x1 is None \
+           or batch_x2 is None \
+           or batch_y is None:
+            batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch(restart = True)
 
         a1, a2, accuracy_sum = sess.run([SNN.a1, SNN.a2, SNN.accuracy_sum], 
                                          feed_dict = {
                                                       SNN.x1: batch_x1,
                                                       SNN.x2: batch_x2,
-                                                      SNN.y:  batch_y })
+                                                      SNN.y:  batch_y,
+                                                      SNN.training: tf.Variable(False, name = 'training'),
+                                                      SNN.dropout_rate: 1.0})
 
         it += 1
 
