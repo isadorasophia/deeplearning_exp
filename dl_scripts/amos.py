@@ -3,6 +3,8 @@
 import numpy as np
 import random
 
+import cv2
+
 import os
 import gc
     
@@ -161,7 +163,24 @@ class dataset:
             # clean up space!
             self.current_batch[cur_id] = None
 
-        return final_b
+        img_b = open_img(final_b)
+
+        return img_b
+
+    # open img for each string in batch
+    def open_img(self, batch):
+        img_b = []
+
+        # for each string...
+        for i in batch:
+            try:
+                f = cv2.imread(path + '/' + img)
+            except IOError:
+                return None
+
+            img_b.append(path)
+
+        return img_b
 
     # extract pickle file
     def open_pickle(self, path):
