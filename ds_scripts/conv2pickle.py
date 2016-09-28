@@ -12,114 +12,134 @@ import scipy
 import os
 import sys
 
-DB_NAME = '/media/bonnibel/Jerônimo/AMOS_Data/left/'
+DB_NAME = '/home/bonnibel/ic/deeplearning/pless/testing/'
 
 # constant values
 MAX_IMG  = 18000
-IMG_SIZE = 224
+STR_SIZE = 20
 
-def cv2keras(img):
-    return np.swapaxes(np.swapaxes(img, 1, 2), 0, 1)
-
+""" 
+    load data from a given path (i.e. 00000001/0/) and returns it as:
+   - dataset_x1: first input of siamese model (string to be loaded as image)
+   - dataset_x2: second input of siamese model (string to be loaded as image)
+   - labels:     1 if first is older and
+                 0 if first is newer.
+""" 
 def load_data(path):
-    dataset_x1 = np.ndarray(shape = (MAX_IMG, 3, IMG_SIZE, IMG_SIZE),
-                            dtype = np.uint8)
-    dataset_x2 = np.ndarray(shape = (MAX_IMG, 3, IMG_SIZE, IMG_SIZE),
-                            dtype = np.uint8)
+    dataset_x1 = ['' for x in xrange(MAX_IMG)]
+    dataset_x2 = ['' for x in xrange(MAX_IMG)]
+    labels     = [0]  * MAX_IMG
 
-    labels  = [0] * MAX_IMG
-    l_label = ''
-    
-    x1_it = 0
-    x2_it = 0
+    # iterator for both datasets
+    x1_it   = 0
+    x2_it   = 0
 
     img_f = os.listdir(path)
 
-    # randomize images
-    img_f = np.random.permutation(img_f)
+    # sort images
+    img_f.sort()
+
+    # initialize first day
+    cur_day = img_f[0][0:7]
+    process = False
+
+    start = 0
+    end   = 0
 
     for img in img_f:
-        try:
-            data = cv2.imread(path + '/' + img)
+        # if image is still in the same day
+        if img[0:7] == cur_day[0:7]:
+            end += 1
+        # day has changed! process!
+        else:
+            cur_day = img[0:7]
+            process = True
 
-            if data is None or data.shape < 3:
-                continue
-            else:
-                data = cv2keras(data)
+        if process:
+            # get files for that day
+            day_f = img_f[start:end]
 
-            if data.shape != (3, IMG_SIZE, IMG_SIZE):
-                raise Exception('Unexpected image shape: %s' % str(data.shape))
+            day_f.sort()
 
-            # a pair is done!
+            for f in day_f:
+                try:
+                    # a pair is done!
+                    if x1_it != x2_it:
+                        dataset_x2[x2_it] = path + '/' + f
+
+                        # first = x1; second = x2
+                        # if the first is older: 1
+                        #              is newer: 0
+                        ## year
+                        if f[0:3] < l_label[0:3]:
+                            labels[x2_it] = 1
+
+                        elif f[0:3] > l_label[0:3]:
+                            labels[x2_it] = 0
+
+                        ## month
+                        elif f[4:5] > l_label[4:5]:
+                            labels[x2_it] = 1
+
+                        elif f[4:5] < l_label[4:5]:
+                            labels[x2_it] = 0
+
+                        ### day
+                        elif f[6:7] > l_label[6:7]:
+                            labels[x2_it] = 1
+
+                        elif f[6:7] < l_label[6:7]:
+                            labels[x2_it] = 0
+
+                        ### hour
+                        elif f[9:10] > l_label[9:10]:
+                            labels[x2_it] = 1
+
+                        elif f[9:10] < l_label[9:10]:
+                            labels[x2_it] = 0
+
+                        ### minute
+                        elif f[11:12] > l_label[11:12]:
+                            labels[x2_it] = 1
+
+                        elif f[11:12] < l_label[11:12]:
+                            labels[x2_it] = 0
+
+                        ### second
+                        elif f[13:14] > l_label[13:14]:
+                            labels[x2_it] = 1
+
+                        elif f[13:14] < l_label[13:14]:
+                            labels[x2_it] = 0
+
+                        x2_it += 1
+
+                    else:
+                        # get data!
+                        dataset_x1[x1_it] = path + '/' + f
+                        l_label = f
+
+                        x1_it += 1
+
+                except IOError as e:
+                    print('Could not read:', image_file, ':', e, '- it\'s ok, skipping.')
+
+            # set everything back to normal!
+            process = False
+            start   = end
+            end     = start + 1
+
+            # if it is an odd number of pics, get away with it! take least number
             if x1_it != x2_it:
-                dataset_x2[x2_it, :, :, :] = data
+                x1_it = x2_it
 
-                # first = x1; second = x2
-                # if the first is older: 1
-                #              is newer: 0
-                ## year
-                if int(img[0:3]) < int(l_label[0:3]):
-                    labels[x2_it] = 1
+            # clean up the mess...
+            del day_f
 
-                elif int(img[0:3]) > int(l_label[0:3]):
-                    labels[x2_it] = 0
-
-                ## month
-                elif int(img[4:5]) > int(l_label[4:5]):
-                    labels[x2_it] = 1
-
-                elif int(img[4:5]) < int(l_label[4:5]):
-                    labels[x2_it] = 0
-
-                ### day
-                elif int(img[6:7]) > int(l_label[6:7]):
-                    labels[x2_it] = 1
-
-                elif int(img[6:7]) < int(l_label[6:7]):
-                    labels[x2_it] = 0
-
-                ### hour
-                elif int(img[9:10]) > int(l_label[9:10]):
-                    labels[x2_it] = 1
-
-                elif int(img[9:10]) < int(l_label[9:10]):
-                    labels[x2_it] = 0
-
-                ### minute
-                elif int(img[11:12]) > int(l_label[11:12]):
-                    labels[x2_it] = 1
-
-                elif int(img[11:12]) < int(l_label[11:12]):
-                    labels[x2_it] = 0
-
-                ### second
-                elif int(img[13:14]) > int(l_label[13:14]):
-                    labels[x2_it] = 1
-
-                elif int(img[13:14]) < int(l_label[13:14]):
-                    labels[x2_it] = 0
-
-                x2_it += 1
-
-            else:
-                # get data!
-                dataset_x1[x1_it, :, :, :] = data
-                labels[x1_it] = 0
-
-                l_label = img
-
-                x1_it += 1
-
-        except IOError as e:
-            print('Could not read:', image_file, ':', e, '- it\'s ok, skipping.')
-
-    # if it is an odd number of pics, get away with it! take least number
-    if x1_it != x2_it:
-        x1_it = x2_it
-
-    dataset_x1 = dataset_x1[0:x1_it, :, :, :]
-    dataset_x2 = dataset_x2[0:x1_it, :, :, :]
-    labels  = labels[0:x1_it]
+    # set everything up!
+    dataset_x1 = dataset_x1[0:x1_it]
+    dataset_x2 = dataset_x2[0:x1_it]
+    labels     = labels[0:x1_it]
 
     return (dataset_x1, dataset_x2, labels)
 
@@ -144,9 +164,9 @@ def try_pickle(path, destination, force=False):
         output_d = destination_d + '/y.pickle'
 
         if os.path.exists(input_d1) or os.path.exists(input_d2) and not force:
-            print ('Pickling for %s or %s already present!' % (input_d1, input_d2))
+            print ('Pickle already present:\n\t%s;\n\t%s\n' % (input_d1, input_d2))
         else:
-            print ('Pickling %s;\n\t %s...\n' % (input_d1, output_d))
+            print ('Pickling %s;\n\t %s;\n\t %s...\n' % (input_d1, input_d2, output_d))
 
         dataset_x1, dataset_x2, labels = load_data(com_d)
 
