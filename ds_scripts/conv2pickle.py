@@ -3,7 +3,6 @@
 from matplotlib import pyplot as plt
 from scipy import ndimage
 from six.moves import cPickle as pickle
-from keras.utils.io_utils import HDF5Matrix
 
 import numpy as np
 import cv2
@@ -12,7 +11,9 @@ import scipy
 import os
 import sys
 
-DB_NAME = '/home/bonnibel/ic/deeplearning/pless/testing/'
+import random
+
+DB_NAME = '/datasets/isophia/AMOS/tr_raw_data/'
 
 # constant values
 MAX_IMG  = 18000
@@ -59,7 +60,7 @@ def load_data(path):
             # get files for that day
             day_f = img_f[start:end]
 
-            day_f.sort()
+            random.shuffle(day_f)
 
             for f in day_f:
                 try:
