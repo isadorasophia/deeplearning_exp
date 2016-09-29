@@ -41,7 +41,7 @@ def load_data(path):
     img_f.sort()
 
     # initialize first day
-    cur_day = img_f[0][0:7]
+    cur_day = img_f[0][0:8]
     process = False
 
     start = 0
@@ -49,11 +49,12 @@ def load_data(path):
 
     for img in img_f:
         # if image is still in the same day
-        if img[0:7] == cur_day[0:7]:
+        if img[0:8] == cur_day[0:8]:
             end += 1
+
         # day has changed! process!
         else:
-            cur_day = img[0:7]
+            cur_day = img[0:8]
             process = True
 
         if process:
@@ -72,45 +73,45 @@ def load_data(path):
                         # if the first is older: 1
                         #              is newer: 0
                         ## year
-                        if f[0:3] < l_label[0:3]:
+                        if f[0:4] < l_label[0:4]:
                             labels[x2_it] = 1
 
-                        elif f[0:3] > l_label[0:3]:
+                        elif f[0:4] > l_label[0:4]:
                             labels[x2_it] = 0
 
                         ## month
-                        elif f[4:5] > l_label[4:5]:
+                        elif f[4:6] > l_label[4:6]:
                             labels[x2_it] = 1
 
-                        elif f[4:5] < l_label[4:5]:
+                        elif f[4:6] < l_label[4:6]:
                             labels[x2_it] = 0
 
                         ### day
-                        elif f[6:7] > l_label[6:7]:
+                        elif f[6:8] > l_label[6:8]:
                             labels[x2_it] = 1
 
-                        elif f[6:7] < l_label[6:7]:
+                        elif f[6:8] < l_label[6:8]:
                             labels[x2_it] = 0
 
                         ### hour
-                        elif f[9:10] > l_label[9:10]:
+                        elif f[9:11] > l_label[9:11]:
                             labels[x2_it] = 1
 
-                        elif f[9:10] < l_label[9:10]:
+                        elif f[9:11] < l_label[9:11]:
                             labels[x2_it] = 0
 
                         ### minute
-                        elif f[11:12] > l_label[11:12]:
+                        elif f[11:13] > l_label[11:13]:
                             labels[x2_it] = 1
 
-                        elif f[11:12] < l_label[11:12]:
+                        elif f[11:13] < l_label[11:13]:
                             labels[x2_it] = 0
 
                         ### second
-                        elif f[13:14] > l_label[13:14]:
+                        elif f[13:15] > l_label[13:15]:
                             labels[x2_it] = 1
 
-                        elif f[13:14] < l_label[13:14]:
+                        elif f[13:15] < l_label[13:15]:
                             labels[x2_it] = 0
 
                         x2_it += 1
