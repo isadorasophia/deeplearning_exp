@@ -16,6 +16,8 @@ X1 = 0
 X2 = 1
 Y  = 2
 
+IMG_SIZE = 224
+
 # get files from both test and train set
 class dataset:
     def __init__(self, path, batch_size):
@@ -163,22 +165,31 @@ class dataset:
             # clean up space!
             self.current_batch[cur_id] = None
 
-        img_b = open_img(final_b)
+        # if we are dealing with the labels
+        if cur_id == 'y':
+            return final_b
+
+        img_b = self.open_img(final_b)
 
         return img_b
 
     # open img for each string in batch
     def open_img(self, batch):
-        img_b = []
+        img_b = np.ndarray(shape = (len(batch), IMG_SIZE, IMG_SIZE, 3),
+                           dtype = np.uint8)
+
+        c = 0
 
         # for each string...
         for i in batch:
             try:
-                f = cv2.imread(path + '/' + img)
+                f = cv2.imread(i)
             except IOError:
                 return None
 
-            img_b.append(path)
+            img_b[c] = f
+
+            c += 1
 
         return img_b
 

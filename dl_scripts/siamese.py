@@ -12,8 +12,8 @@ IMG_DIM  = 224
 class siamese:
     def __init__(self, batch_size, weight_path):
         # input for first and second network
-        self.x1 = tf.placeholder(tf.float32, shape = (batch_size, 3, IMG_DIM, IMG_DIM), name = "x1")
-        self.x2 = tf.placeholder(tf.float32, shape = (batch_size, 3, IMG_DIM, IMG_DIM), name = "x2")
+        self.x1 = tf.placeholder(tf.float32, shape = (batch_size, IMG_DIM, IMG_DIM, 3), name = "x1")
+        self.x2 = tf.placeholder(tf.float32, shape = (batch_size, IMG_DIM, IMG_DIM, 3), name = "x2")
 
         # pre-trained weights of siamese model, according to VGG 19
         self.s_dict = np.load(weight_path, encoding='latin1').item()
@@ -49,8 +49,8 @@ class siamese:
         # receives x := BGR image of size [batch, 3, height, width]
 
         # split it into different tensors
-        pre_x = tf.transpose(x, [0, 3, 2, 1])
-        b, g, r = tf.split(3, 3, pre_x)
+        # pre_x = tf.transpose(x, [0, 3, 2, 1])
+        b, g, r = tf.split(3, 3, x)
 
         # takes the mean value
         bgr = tf.concat(3, [b - self.img_mean[0], g - self.img_mean[1], r - self.img_mean[2], ])
