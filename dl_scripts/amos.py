@@ -84,7 +84,7 @@ class dataset:
         if x1 is None or x2 is None or y is None \
            or len(x1) != self.batch_size or len(x2) != self.batch_size \
            or len(y) != self.batch_size:
-            print(filename[X1], next_filename[X1])
+            print 'Something went wrong... skipping file!'
 
             self.next_batch = {'x1': None, 'x2': None, 'y': None}
             self.current_batch = {'x1': None, 'x2': None, 'y': None}
