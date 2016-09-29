@@ -153,7 +153,7 @@ def train(tr_dataset, te_dataset):
                     saver.save(sess, FLAGS.data_dir + "SNN", global_step = step)
                     
                     # estimate evaluation
-                    i_test += test(sess, SNN, te_writer, i_test, te_dataset)
+                    i_test = test(sess, SNN, te_writer, i_test, te_dataset)
 
         tr_writer.close()
         te_writer.close()
