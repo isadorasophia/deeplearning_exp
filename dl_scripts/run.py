@@ -19,7 +19,7 @@ tf.app.flags.DEFINE_float('learning_rate_decay_factor', 0.96,
 
 tf.app.flags.DEFINE_float('num_epochs_per_decay', 1000.0,
                           """Epochs after which learning rate decays.""")
-tf.app.flags.DEFINE_integer('batch_size', 25,
+tf.app.flags.DEFINE_integer('batch_size', 15,
                           """Epochs after which learning rate decays.""")
 
 # training itself
@@ -41,9 +41,9 @@ tf.app.flags.DEFINE_string('summaries_dir', '/work/amosexp/summaries/',
                            'Summaries directory')
 
 
-tf.app.flags.DEFINE_string('tr_dataset', '/datasets/isophia/AMOS/train/', 
+tf.app.flags.DEFINE_string('tr_dataset', '/datasets/isophia/AMOS/tr_raw_data/pickle_files/', 
                            'Path to train dataset.')
-tf.app.flags.DEFINE_string('te_dataset', '/datasets/isophia/AMOS/test/', 
+tf.app.flags.DEFINE_string('te_dataset', '/datasets/isophia/AMOS/te_raw_data/pickle_files/', 
                            'Path to test dataset.')
 
 # total of epochs
@@ -62,7 +62,7 @@ def train(tr_dataset, te_dataset):
         # set config options
         config = tf.ConfigProto(allow_soft_placement = True)
         config.gpu_options.allow_growth = True
-        # config.gpu_options.per_process_gpu_memory_fraction = 0.7
+        config.gpu_options.per_process_gpu_memory_fraction = 0.6
 
         # initialize session
         sess = tf.InteractiveSession(config = config)
