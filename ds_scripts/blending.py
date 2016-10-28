@@ -8,7 +8,7 @@ import random
 
 from datetime import datetime
 
-path = '/home/bonnibel/ic/deeplearning/pless/testing/2013.05/'
+path = '/home/bonnibel/ic/deeplearning/pless/testing/2015.11/'
 res_path = path + 'results/'
 
 files = sorted(os.listdir(path))
@@ -29,6 +29,9 @@ for f in files:
         cur_d = []
         cur_f = f[0:8]
 
+if cur_d is not None and len(cur_d) > 1:
+    days.append(cur_d)
+
 for day in days:
     random.shuffle(day)
 
@@ -37,7 +40,7 @@ for day in days:
 
     j = len(day) - 2
 
-    while j > 0:
+    while j >= 0:
         a = cv2.imread(path + day[j])
         b = cv2.imread(path + day[j + 1])
 
@@ -87,11 +90,14 @@ for day in days:
         tdelta = tdelta.seconds/60
 
         name_blend = 'blending_' + str(tdelta) + '.jpg'
+        name_absdiff = 'absdiff_' + str(tdelta) + '.jpg'
         name_diff  = 'diff_' + str(tdelta) + '.jpg'
 
         c = cv2.absdiff(a, b)
+        d = cv2.subtract(a, b)
 
         cv2.imwrite(res_path + name_blend, ls_)
-        cv2.imwrite(res_path + name_diff, c)
+        cv2.imwrite(res_path + name_absdiff, c)
+        cv2.imwrite(res_path + name_diff, d)
 
         j -= 2
