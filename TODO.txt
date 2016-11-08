@@ -1,0 +1,37 @@
+/** TODO **/
+
+> batch normalization *; OK
+> shift rgb *; (?) WHATEV
+> aumentar batch size (aumentar output 10 * 50 (pelo menos); OK
+> xavier inicializacao de pesos OK
+> colocar dropout; OK
+> aplicar decay na lr; OK
+
+/* experimentos */  
+> calcular imagem de diferenca entre pares entre diferentes intervalos OK
+
+/* alterar dataset para dentro de um mesmo dia */ OK
+
+/** **/
+  Exp. a longo prazo:
+    - tentar trocar para l2 norm (TODO);
+    - mutual information para loss function;
+    - considerar eliminar imagens de céu etc. 
+      (alteracao dos pixels para considerar imagem no dataset,
+       i.e. verificar se tem info).
+
+/** 04/10 **/
+> verificar diferença não-absoluta entre imagens (aplicar shift) 
+  e procurar distinguir qual veio antes (to think about!!)
+> verificar histograma de cor entre imagens do dia e da noite e o quanto que 
+  elas variam
+> converter imagem para H (cor) S (sombras, etc.) V (incidência) vs. RGB e 
+  verificar como ela se modela durante o dia, qual das features mais muda etc.
+
+(tentar abordagem por diferença:
+    calcular diferença e descobrir quem veio antes pelo sub das imagens
+    verificar mudança no histograma (imagens no dia e imagens do dia)
+
+    converter imagem para H (cor) S (intensidade) V (intensidade, incidencia) -> verificar o que muda mais durante o dia
+
+    > fazer gráficos etc para visualizar)

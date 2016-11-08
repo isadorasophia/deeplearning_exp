@@ -190,6 +190,9 @@ class dataset:
             if f is None:
                 return None
 
+            # convert into hsv
+            f = cv2.cvtColor(f, cv2.COLOR_RGB2HSV)
+            
             img_b[c] = f
 
             c += 1

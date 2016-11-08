@@ -16,9 +16,9 @@ MIN_MATCH_COUNT = 1
 
 ignore = True
 
-OUTPUT   = 'final'
+OUTPUT = 'final'
 
-root     = '/media/bonnibel/Jerônimo/AMOS_Data/left/'
+root   = '/media/bonnibel/Jerônimo/AMOS_Data/left/'
 
 def cv2keras(img):
     return np.swapaxes(np.swapaxes(img, 1, 2), 0, 1)

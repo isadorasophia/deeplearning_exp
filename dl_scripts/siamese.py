@@ -18,8 +18,8 @@ class siamese:
         # pre-trained weights of siamese model, according to VGG 19
         self.s_dict = np.load(weight_path, encoding='latin1').item()
 
-        # image mean values from AMOS dataset
-        self.img_mean = [93.689, 91.849, 92.119]
+        # image mean values from AMOS dataset, in HSV
+        self.img_mean = [0, 2.1, 36.9] # RGB: [93.689, 91.849, 92.119]
 
         # is this a training session?
         self.training = tf.Variable(True, name='training')
@@ -46,30 +46,30 @@ class siamese:
         self.loss_sum = tf.scalar_summary("loss", tf.reduce_mean(self.loss))
 
     def network(self, x):
-        # receives x := BGR image of size [batch, 3, height, width]
+        # receives x := HSV image of size [batch, 3, height, width]
 
         # split it into different tensors
         # pre_x = tf.transpose(x, [0, 3, 2, 1])
-        b, g, r = tf.split(3, 3, x)
+        h, s, v = tf.split(3, 3, x)
 
         # takes the mean value
-        bgr = tf.concat(3, [b - self.img_mean[0], g - self.img_mean[1], r - self.img_mean[2], ])
+        bgr = tf.concat(3, [h - self.img_mean[0], s - self.img_mean[1], v - self.img_mean[2], ])
 
         # make sure final shape meets the shape
         assert bgr.get_shape().as_list()[1:] == [224, 224, 3]
 
-        conv1_1 = self.conv_layer(bgr, "conv1_1")              # 224 x 224 x 64
-        conv1_2 = self.conv_layer(conv1_1, "conv1_2") 
+        conv1_1 = self.rand_conv_layer(bgr, "conv1_1")         # 224 x 224 x 64
+        conv1_2 = self.rand_conv_layer(conv1_1, "conv1_2") 
         pool1 = self.max_pool(conv1_2, "pool1")                # 112 x 112 x 128
 
-        conv2_1 = self.conv_layer(pool1, "conv2_1")            # 112 x 112 x 128
-        conv2_2 = self.conv_layer(conv2_1, "conv2_2") 
+        conv2_1 = self.rand_conv_layer(pool1, "conv2_1")       # 112 x 112 x 128
+        conv2_2 = self.rand_conv_layer(conv2_1, "conv2_2") 
         pool2 = self.max_pool(conv2_2, "pool2")                # 56 x 56 x 256
 
-        conv3_1 = self.conv_layer(pool2, "conv3_1")
-        conv3_2 = self.conv_layer(conv3_1, "conv3_2") 
-        conv3_3 = self.conv_layer(conv3_2, "conv3_3") 
-        conv3_4 = self.conv_layer(conv3_3, "conv3_4")
+        conv3_1 = self.rand_conv_layer(pool2, "conv3_1")
+        conv3_2 = self.rand_conv_layer(conv3_1, "conv3_2") 
+        conv3_3 = self.rand_conv_layer(conv3_2, "conv3_3") 
+        conv3_4 = self.rand_conv_layer(conv3_3, "conv3_4")
         pool3 = self.max_pool(conv3_4, "pool3")                # 28 x 28 x 512
 
         conv4_1 = self.rand_conv_layer(pool3, "conv4_1")
@@ -224,24 +224,49 @@ class siamese:
         return tf.constant(self.s_dict[name][0], name="weights")
 
     def loss(self):
+        # implements loss function from S. Chopra, R. Hadsell and Y. LeCun,
+        #                        "Learning a Similarity Metric Discriminatively, 
+        #                                 with Application to Face Verification"
+        # # Y:     if x1 is older
+        # labels_o = tf.cast(self.y, tf.float32)
+
+        # # 1 - Y: if x1 is newer
+        # labels_n = tf.cast(tf.sub(1, self.y, name="oneSubYi"), tf.float32)
+
+        # # L1 normalization!
+        # E_w = tf.reduce_sum(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
+
+        # # L2 normalization
+        # # E_w = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
+
+        # Q = tf.cast(10, tf.float32)
+
+        # loss = tf.add(tf.mul(2/Q, tf.mul(labels_n, tf.pow(E_w, 2))),
+        #               tf.mul(2*Q, tf.mul(labels_o,
+        #                                  tf.pow (np.e, tf.mul(-2.77/Q, E_w))
+        #              )))
+
+        ### apply new loss function!
+        zero = tf.cast(0, tf.float32)
+        p1 = tf.nn.l2_normalize(self.a1, 1)
+        p2 = tf.nn.l2_normalize(self.a2, 1)
+
+        # get distances from right answer
+        d1 = tf.maximum(tf.sub(tf.abs(p1), tf.abs(p2)), zero)
+        d2 = tf.maximum(tf.sub(tf.abs(p2), tf.abs(p1)), zero)
+
         # Y:     if x1 is older
-        labels_o = tf.cast(self.y, tf.float32)
+        label_o = tf.cast(self.y, tf.float32)
 
         # 1 - Y: if x1 is newer
-        labels_n = tf.cast(tf.sub(1, self.y, name="oneSubYi"), tf.float32)
+        label_n = tf.cast(tf.sub(1, self.y), tf.float32)
 
-        # L1 normalization!
-        E_w = tf.reduce_sum(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
-
-        # L2 normalization
-        # E_w = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
-
-        Q = tf.cast(10, tf.float32)
-
-        loss = tf.add(tf.mul(2/Q, tf.mul(labels_n, tf.pow(E_w, 2))),
-                      tf.mul(2*Q, tf.mul(labels_o,
-                                         tf.pow (np.e, tf.mul(-2.77/Q, E_w))
-                     )))
+        # apply loss
+        loss = tf.mul(
+                      1/2, tf.add(
+                                  tf.mul(label_o, d1), tf.mul(label_n, d2)
+                                 )
+                     )
 
         return loss
 
@@ -250,9 +275,16 @@ class siamese:
         # res = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
 
         # estimate result based on l1 norm
-        res = tf.reduce_sum(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
+        # res = tf.reduce_sum(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
+
+        ### subtract and check if the result was either positive and negative:
+        ###   and begin to work from that!
+        p1 = tf.nn.l2_normalize(self.a1, 1)
+        p2 = tf.nn.l2_normalize(self.a2, 1)
+
+        res = tf.sub(tf.abs(p1), tf.abs(p2))
         
-        f1 = lambda x: tf.constant(1.0) if tf.less(res, 0.5) is True else tf.constant(0.0)
+        f1 = lambda x: tf.constant(1.0) if tf.less(res, 0) is True else tf.constant(0.0)
 
         res = tf.map_fn(f1, res)
 
