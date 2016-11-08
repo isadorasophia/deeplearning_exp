@@ -61,8 +61,8 @@ def train(tr_dataset, te_dataset):
     with tf.device('gpu:0'):
         # set config options
         config = tf.ConfigProto(allow_soft_placement = True)
-        config.gpu_options.allow_growth = True
-        config.gpu_options.per_process_gpu_memory_fraction = 0.6
+        config.gpu_options.allow_growth = False
+        config.gpu_options.per_process_gpu_memory_fraction = 0.8
 
         # initialize session
         sess = tf.InteractiveSession(config = config)

@@ -227,46 +227,52 @@ class siamese:
         # implements loss function from S. Chopra, R. Hadsell and Y. LeCun,
         #                        "Learning a Similarity Metric Discriminatively, 
         #                                 with Application to Face Verification"
-        # # Y:     if x1 is older
-        # labels_o = tf.cast(self.y, tf.float32)
-
-        # # 1 - Y: if x1 is newer
-        # labels_n = tf.cast(tf.sub(1, self.y, name="oneSubYi"), tf.float32)
-
-        # # L1 normalization!
-        # E_w = tf.reduce_sum(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
-
-        # # L2 normalization
-        # # E_w = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
-
-        # Q = tf.cast(10, tf.float32)
-
-        # loss = tf.add(tf.mul(2/Q, tf.mul(labels_n, tf.pow(E_w, 2))),
-        #               tf.mul(2*Q, tf.mul(labels_o,
-        #                                  tf.pow (np.e, tf.mul(-2.77/Q, E_w))
-        #              )))
-
-        ### apply new loss function!
-        zero = tf.cast(0, tf.float32)
-        p1 = tf.nn.l2_normalize(self.a1, 1)
-        p2 = tf.nn.l2_normalize(self.a2, 1)
-
-        # get distances from right answer
-        d1 = tf.maximum(tf.sub(tf.abs(p1), tf.abs(p2)), zero)
-        d2 = tf.maximum(tf.sub(tf.abs(p2), tf.abs(p1)), zero)
-
         # Y:     if x1 is older
-        label_o = tf.cast(self.y, tf.float32)
+        labels_o = tf.cast(self.y, tf.float32)
 
         # 1 - Y: if x1 is newer
-        label_n = tf.cast(tf.sub(1, self.y), tf.float32)
+        labels_n = tf.cast(tf.sub(1, self.y, name="oneSubYi"), tf.float32)
 
-        # apply loss
-        loss = tf.mul(
-                      1/2, tf.add(
-                                  tf.mul(label_o, d1), tf.mul(label_n, d2)
-                                 )
-                     )
+        # L1 normalization!
+        E_w = tf.reduce_sum(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
+
+        # L2 normalization
+        # E_w = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
+
+        Q = tf.cast(10, tf.float32)
+
+        loss = tf.add(tf.mul(2/Q, tf.mul(labels_n, tf.pow(E_w, 2))),
+                      tf.mul(2*Q, tf.mul(labels_o,
+                                         tf.pow (np.e, tf.mul(-2.77/Q, E_w))
+                      )))
+
+        ### apply new loss function!
+#        zero = tf.cast(0, tf.float32)
+#        p1 = tf.reduce_sum(tf.pow(self.a1, 2), 1, keep_dims = True)
+#        p2 = tf.reduce_sum(tf.pow(self.a2, 2), 1, keep_dims = True)
+
+#        p1 = tf.cast(p1, tf.float32)
+#        p2 = tf.cast(p2, tf.float32)
+
+        # get distances from right answer
+#        d1 = p1 # tf.sub(tf.abs(p1), tf.abs(p2))
+#        d2 = p2 # tf.sub(tf.abs(p2), tf.abs(p1))
+
+        # Y:     if x1 is older
+#        label_o = tf.cast(self.y, tf.float32)
+
+        # 1 - Y: if x1 is newer
+#        label_n = tf.cast(tf.sub(1, self.y), tf.float32)
+
+        # constant
+#        c = tf.cast(1/2, tf.float32)
+
+#        # apply loss
+#        loss = tf.mul(
+#                      c, tf.add(
+#                                tf.mul(label_o, d1), tf.mul(label_n, d2)
+#                               )
+#                     )
 
         return loss
 
