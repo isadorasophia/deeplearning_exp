@@ -186,6 +186,9 @@ class dataset:
                 f = cv2.imread(i)
             except IOError:
                 return None
+            
+            if f is None:
+                return None
 
             img_b[c] = f
 
