@@ -12,8 +12,7 @@ import gc
 from six.moves import cPickle as pickle
 
 # standard definition
-X1 = 0
-X2 = 1
+X  = 0
 Y  = 2
 
 IMG_SIZE = 224
@@ -47,8 +46,8 @@ class dataset:
         # get batch size
         self.batch_size = batch_size
 
-        self.current_batch = {'x1': None, 'x2': None, 'y': None}
-        self.next_batch = {'x1': None, 'x2': None, 'y': None}
+        self.current_batch = {'x': None, 'y': None}
+        self.next_batch = {'x': None, 'y': None}
 
     # keep getting next (available) batch
     def get_next_batch(self, restart = False):
@@ -56,14 +55,14 @@ class dataset:
         if restart or self.current_file >= len(self.files):
             random.shuffle(self.files)
 
-            self.next_batch    = {'x1': None, 'x2': None, 'y': None}
-            self.current_batch = {'x1': None, 'x2': None, 'y': None}
+            self.next_batch    = {'x': None, 'y': None}
+            self.current_batch = {'x': None, 'y': None}
 
             self.current_file  = 0
             self.batch_counter = 0
 
         filename = self.files[self.current_file]
-   
+
         # check if there is a valid candidate as a next extraction file
         if len(self.files) > self.current_file + 1:
             next_filename = self.files[self.current_file + 1]
@@ -73,21 +72,20 @@ class dataset:
         if filename is None or next_filename is None:
             return None, None, None
 
-        x1 = self.get_batch(filename[X1], next_filename[X1], 'x1')
-        x2 = self.get_batch(filename[X2], next_filename[X2], 'x2')
-        y  = self.get_batch(filename[Y], next_filename[Y], 'y')
+        x = self.get_batch(filename[X], next_filename[X], 'x')
+        y = self.get_batch(filename[Y], next_filename[Y], 'y')
 
         # get valid shape for output
-        y  = np.reshape(y, (self.batch_size, 1)) 
+        y = np.reshape(y, (self.batch_size, 1)) 
 
         # sanity check
-        if x1 is None or x2 is None or y is None \
-           or len(x1) != self.batch_size or len(x2) != self.batch_size \
+        if x is None or y is None \
+           or len(x) != self.batch_size \
            or len(y) != self.batch_size:
             print 'Something went wrong... skipping file!'
 
-            self.next_batch = {'x1': None, 'x2': None, 'y': None}
-            self.current_batch = {'x1': None, 'x2': None, 'y': None}
+            self.next_batch = {'x': None, 'y': None}
+            self.current_batch = {'x': None, 'y': None}
 
             self.current_file += 1
             self.batch_counter = 0
@@ -96,7 +94,7 @@ class dataset:
 
         self.batch_counter += 1
 
-        return x1, x2, y
+        return x, y
 
     # get a valid batch, given the filenames and current id
     def get_batch(self, filename, next_filename, cur_id):

@@ -21,19 +21,16 @@ STR_SIZE = 20
 
 """ 
     load data from a given path (i.e. 00000001/0/) and returns it as:
-   - dataset_x1: first input of siamese model (string to be loaded as image)
-   - dataset_x2: second input of siamese model (string to be loaded as image)
+   - dataset_x1: input of model (string to be loaded as image)
    - labels:     1 if first is older and
                  0 if first is newer.
 """ 
 def load_data(path):
-    dataset_x1 = ['' for x in xrange(MAX_IMG)]
-    dataset_x2 = ['' for x in xrange(MAX_IMG)]
+    dataset_x  = ['' for x in xrange(MAX_IMG)]
     labels     = [0]  * MAX_IMG
 
     # iterator for both datasets
-    x1_it   = 0
-    x2_it   = 0
+    x_it   = 0
 
     img_f = os.listdir(path)
 
@@ -48,102 +45,20 @@ def load_data(path):
     end   = 0
 
     for img in img_f:
-        # if image is still in the same day
-        if img[0:8] == cur_day[0:8]:
-            end += 1
+        dataset_x[x_it] = path + '/' + img
 
-        # day has changed! process!
-        else:
-            cur_day = img[0:8]
-            process = True
+        labels[x_it] = 0
+        labels[x_it] += img[9:11] * 60 * 60  # hours
+        labels[x_it] += img[11:13] * 60      # minutes
+        labels[x_it] += img[13:15]           # seconds
 
-        if process:
-            # get files for that day
-            day_f = img_f[start:end]
-
-            random.shuffle(day_f)
-
-            for f in day_f:
-                try:
-                    # a pair is done!
-                    if x1_it != x2_it:
-                        dataset_x2[x2_it] = path + '/' + f
-
-                        # first = x1; second = x2
-                        # if the first is older: 1
-                        #              is newer: 0
-                        ## year
-                        if f[0:4] < l_label[0:4]:
-                            labels[x2_it] = 1
-
-                        elif f[0:4] > l_label[0:4]:
-                            labels[x2_it] = 0
-
-                        ## month
-                        elif f[4:6] > l_label[4:6]:
-                            labels[x2_it] = 1
-
-                        elif f[4:6] < l_label[4:6]:
-                            labels[x2_it] = 0
-
-                        ### day
-                        elif f[6:8] > l_label[6:8]:
-                            labels[x2_it] = 1
-
-                        elif f[6:8] < l_label[6:8]:
-                            labels[x2_it] = 0
-
-                        ### hour
-                        elif f[9:11] > l_label[9:11]:
-                            labels[x2_it] = 1
-
-                        elif f[9:11] < l_label[9:11]:
-                            labels[x2_it] = 0
-
-                        ### minute
-                        elif f[11:13] > l_label[11:13]:
-                            labels[x2_it] = 1
-
-                        elif f[11:13] < l_label[11:13]:
-                            labels[x2_it] = 0
-
-                        ### second
-                        elif f[13:15] > l_label[13:15]:
-                            labels[x2_it] = 1
-
-                        elif f[13:15] < l_label[13:15]:
-                            labels[x2_it] = 0
-
-                        x2_it += 1
-
-                    else:
-                        # get data!
-                        dataset_x1[x1_it] = path + '/' + f
-                        l_label = f
-
-                        x1_it += 1
-
-                except IOError as e:
-                    print('Could not read:', image_file, ':', e, '- it\'s ok, skipping.')
-
-            # set everything back to normal!
-            process = False
-            start   = end
-            end     = start + 1
-
-            # if it is an odd number of pics, get away with it! take least number
-            if x1_it != x2_it:
-                x1_it = x2_it
-
-            # clean up the mess...
-            del day_f
+        x_it += 1
 
     # set everything up!
-    dataset_x1 = dataset_x1[0:x1_it]
-    dataset_x2 = dataset_x2[0:x1_it]
-    labels     = labels[0:x1_it]
+    dataset_x  = dataset_x[0:x_it]
+    labels     = labels[0:x_it]
 
-    return (dataset_x1, dataset_x2, labels)
+    return (dataset_x, labels)
 
 def try_pickle(path, destination, force=False):
     # list all the camera directories, according to path
@@ -161,24 +76,20 @@ def try_pickle(path, destination, force=False):
         if not os.path.exists(destination_d):
             os.makedirs(destination_d   )
 
-        input_d1 = destination_d + '/x1.pickle'
-        input_d2 = destination_d + '/x2.pickle'
+        input_d1 = destination_d + '/x.pickle'
         output_d = destination_d + '/y.pickle'
 
-        if os.path.exists(input_d1) or os.path.exists(input_d2) and not force:
-            print ('Pickle already present:\n\t%s;\n\t%s\n' % (input_d1, input_d2))
+        if os.path.exists(input_d1) and not force:
+            print ('Pickle already present:\n\t%s;\n\t%s\n' % input_d1)
         else:
-            print ('Pickling %s;\n\t %s;\n\t %s...\n' % (input_d1, input_d2, output_d))
+            print ('Pickling %s;\n\t %s;\n\t %s...\n' % (input_d1, output_d))
 
-        dataset_x1, dataset_x2, labels = load_data(com_d)
+        dataset_x, labels = load_data(com_d)
 
         # save both input and output
         try:
             with open(input_d1, 'wb') as f:
                 pickle.dump(dataset_x1, f, pickle.HIGHEST_PROTOCOL)
-
-            with open(input_d2, 'wb') as f:
-                pickle.dump(dataset_x2, f, pickle.HIGHEST_PROTOCOL)
 
             with open(output_d, 'wb') as f:
                 pickle.dump(labels, f, pickle.HIGHEST_PROTOCOL)
@@ -186,8 +97,7 @@ def try_pickle(path, destination, force=False):
         except Exception as e:
             print('Unable to save data to ', destination, ' : ', e)
 
-        del dataset_x1
-        del dataset_x2
+        del dataset_x
         del labels
 
     return
