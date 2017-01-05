@@ -2,7 +2,7 @@
 import tensorflow as tf
 import numpy as np
 
-import siamese
+import autoencoder
 import amos
 
 # train the network!
@@ -12,26 +12,15 @@ import amos
 FLAGS = tf.app.flags.FLAGS
 
 # flags regarding data training
-tf.app.flags.DEFINE_float('initial_learning_rate', 0.00005,
+tf.app.flags.DEFINE_float('lr', 0.00005,
                           """Initial learning rate.""")
-tf.app.flags.DEFINE_float('learning_rate_decay_factor', 0.96,
-                          """Learning rate decay factor.""")
 
-tf.app.flags.DEFINE_float('num_epochs_per_decay', 1000.0,
-                          """Epochs after which learning rate decays.""")
 tf.app.flags.DEFINE_integer('batch_size', 15,
                           """Epochs after which learning rate decays.""")
+tf.app.flags.DEFINE_integer('hidden_size', 100,
+                          """Size of output of encoder layer.""")
 
-# training itself
-tf.app.flags.DEFINE_boolean('fine_tune', False,
-                            """If set, randomly initialize the final layer """
-                            """of weights in order to train the network on a """
-                            """new task.""")
-tf.app.flags.DEFINE_string('pretrained_path', '/work/amosexp/data/input/vgg19.npy',
-                           """If specified, restore this pretrained model """
-                            """before beginning any training.""")
-
-tf.app.flags.DEFINE_integer('num_gpus', 2,
+tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
 
 # some important paths
@@ -58,7 +47,7 @@ BETA_TWO = 0.999
 EPSILON  = 0.0001
 
 def train(tr_dataset, te_dataset):
-    with tf.device('gpu:0'):
+    with tf.device('/gpu:0'):
         # set config options
         config = tf.ConfigProto(allow_soft_placement = True)
         config.gpu_options.allow_growth = False
@@ -73,23 +62,12 @@ def train(tr_dataset, te_dataset):
                       sess.graph)
         te_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/test')
 
-        # initialize siamese neural network
-        SNN = siamese.siamese(FLAGS.batch_size, FLAGS.pretrained_path)
-
-        # batch counter
-        batch = tf.Variable(0)
-        decay_step = int(FLAGS.batch_size * FLAGS.num_epochs_per_decay)
-        decay_rate = FLAGS.learning_rate_decay_factor
-
-        # decay the learning rate exponentially based on the number of steps
-        lr = tf.train.exponential_decay(FLAGS.initial_learning_rate,
-                                  tf.mul(batch, FLAGS.batch_size),           # current index of dataset
-                                  decay_step,                              # decay step
-                                  decay_rate)                              # decay rate
+        # initialize VAE neural network
+        VAE = VAE.VAE(FLAGS.batch_size, FLAGS.pretrained_path)
 
         # create an optimizer that performs gradient descent
-        opt = tf.train.AdamOptimizer(lr)
-        opt_op = opt.minimize(SNN.loss, global_step = batch)
+        opt = tf.train.AdamOptimizer(FLAG.lr, FLAG.hidden_size)
+        opt_op = opt.minimize(VAE.loss, global_step=batch)
 
         saver = tf.train.Saver()
         tf.initialize_all_variables().run()
@@ -106,79 +84,72 @@ def train(tr_dataset, te_dataset):
 
         for step in range(FLAGS.n_epochs_tr):
             with tf.device('/gpu:0'):
-                batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch()
+                batch_x, batch_y = tr_dataset.get_next_batch()
 
-                while batch_x1 is None or \
-                   batch_x2 is None or \
-                   batch_y is None:
-                    batch_x1, batch_x2, batch_y = tr_dataset.get_next_batch(restart = True)
+                while batch_x is None or \
+                      batch_y is None:
+                    batch_x, batch_y = tr_dataset.get_next_batch(restart = True)
 
                 if step % 100 == 0 and step > 0:
                     run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                     run_metadata = tf.RunMetadata()
 
-                    _, loss_value = sess.run([opt_op, SNN.loss], feed_dict={
-                                             SNN.x1: batch_x1, 
-                                             SNN.x2: batch_x2, 
-                                             SNN.y:  batch_y,
-                                             SNN.training: tf.Variable(True, name = 'training'),
-                                             SNN.dropout_rate: 0.5},
+                    _, cost = sess.run([opt_op, VAE.loss], feed_dict={
+                                             VAE.x: batch_x,
+                                             VAE.training: tf.Variable(True, name = 'training'),
+                                             VAE.dropout_rate: 0.5},
                                              options      = run_options,
                                              run_metadata = run_metadata)
             
                     tr_writer.add_run_metadata(run_metadata, "%03d" % step)
 
                     # make sure loss value still fits
-                    assert not np.isnan(loss_value.any()), 'Model diverged with loss = NaN'
+                    assert not np.isnan(cost.any()), 'Model diverged with loss = NaN'
 
                 else:
-                    _, loss_value, loss_summary = sess.run([opt_op, SNN.loss, SNN.loss_sum], 
+                    _, cost, cost_summary = sess.run([opt_op, VAE.loss, VAE.loss_sum], 
                                                             feed_dict={
-                                                                        SNN.x1: batch_x1, 
-                                                                        SNN.x2: batch_x2, 
-                                                                        SNN.y:  batch_y,
-                                                                        SNN.training: tf.Variable(True, name = 'training'),
-                                                                        SNN.dropout_rate: 0.5})
+                                                                        VAE.x: batch_x,
+                                                                        VAE.training: tf.Variable(True, name = 'training'),
+                                                                        VAE.dropout_rate: 0.5})
  
                     # make sure loss value still fits
-                    assert not np.isnan(loss_value.any()), 'Model diverged with loss = NaN'
+                    assert not np.isnan(cost.any()), 'Model diverged with loss = NaN'
     
                     print "Step %d: " % step
-                    print loss_value
+                    print cost
 
-                    tr_writer.add_summary(loss_summary, step)
+                    tr_writer.add_summary(cost_summary, step)
 
                 if step % 5000 == 0 and step > 0:
                     # save current session
-                    saver.save(sess, FLAGS.data_dir + "SNN", global_step = step)
+                    saver.save(sess, FLAGS.data_dir + "VAE", global_step = step)
                     
                     # estimate evaluation
-                    i_test = test(sess, SNN, te_writer, i_test, te_dataset)
+                    i_test = test(sess, VAE, te_writer, i_test, te_dataset)
 
         tr_writer.close()
         te_writer.close()
 
-def test(sess, SNN, te_writer, it, te_dataset):
+def test(sess, VAE, te_writer, it, te_dataset):
     for i in range(FLAGS.n_epochs_te):
-        batch_x1, batch_x2, batch_y = te_dataset.get_next_batch()
+        batch_x, batch_y = te_dataset.get_next_batch()
 
         # test data is done already, go home
-        while batch_x1 is None \
-           or batch_x2 is None \
+        while batch_x is None \
            or batch_y is None:
-            batch_x1, batch_x2, batch_y = te_dataset.get_next_batch(restart = True)
+            batch_x, batch_y = te_dataset.get_next_batch(restart = True)
 
-        a1, a2, accuracy_sum = sess.run([SNN.a1, SNN.a2, SNN.accuracy_sum], 
-                                         feed_dict = {
-                                                      SNN.x1: batch_x1,
-                                                      SNN.x2: batch_x2,
-                                                      SNN.y:  batch_y,
-                                                      SNN.training: tf.Variable(False, name = 'training'),
-                                                      SNN.dropout_rate: 1.0})
+        acc_summary = sess.run([VAE.accuracy_sum], 
+                                 feed_dict = {
+                                              VAE.x: batch_x,
+                                              VAE.y:  batch_y,
+                                              VAE.training: tf.Variable(False, name = 'training'),
+                                              VAE.dropout_rate: 0.5})
 
         it += 1
 
-        te_writer.add_summary(accuracy_sum, it)
+        te_writer.add_summary(acc_summary, it)
 
     return it
 

@@ -1,1 +1,1 @@
-Scripts which handle the network itself (still needs to create visualizing tools!)
+Scripts which handle the network itself. First attempt was a siamese model, second attempt will be characterized by an autoencoder.

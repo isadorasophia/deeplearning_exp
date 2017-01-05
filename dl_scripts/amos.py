@@ -130,7 +130,7 @@ class dataset:
             # if this is our last file from this batch
             if cur_id == 'y':
                 self.current_file += 1
-                self.batch_counter = 0
+                self.batch_counter = -1
 
         # assign variable and (possibly) clean up space!
         final_b = self.current_batch[cur_id][int(start):int(end)]
@@ -141,7 +141,7 @@ class dataset:
             # if this is our last file from this batch
             if cur_id == 'y':
                 self.current_file += 1
-                self.batch_counter = 0
+                self.batch_counter = -1
 
             self.current_batch[cur_id] = None
 
@@ -188,9 +188,14 @@ class dataset:
             if f is None:
                 return None
 
-            # convert into hsv
+            # convert 8bit img into hsv
             f = cv2.cvtColor(f, cv2.COLOR_RGB2HSV)
             
+            # convert to float type and apply scale
+            f = f.astype(numpy.float16)
+            f[:, :, 0] = f[:, :, 0]/180.0
+            f[:, :, 1:] = f[:, :, 1:]/255.0
+
             img_b[c] = f
 
             c += 1

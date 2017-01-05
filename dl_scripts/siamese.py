@@ -12,8 +12,10 @@ IMG_DIM  = 224
 class siamese:
     def __init__(self, batch_size, weight_path):
         # input for first and second network
-        self.x1 = tf.placeholder(tf.float32, shape = (batch_size, IMG_DIM, IMG_DIM, 3), name = "x1")
-        self.x2 = tf.placeholder(tf.float32, shape = (batch_size, IMG_DIM, IMG_DIM, 3), name = "x2")
+        self.x1 = tf.placeholder(tf.float16, \
+                                 shape = (batch_size, IMG_DIM, IMG_DIM, 3), name = "x1")
+        self.x2 = tf.placeholder(tf.float16, \
+                                 shape = (batch_size, IMG_DIM, IMG_DIM, 3), name = "x2")
 
         # pre-trained weights of siamese model, according to VGG 19
         self.s_dict = np.load(weight_path, encoding='latin1').item()
@@ -53,7 +55,8 @@ class siamese:
         h, s, v = tf.split(3, 3, x)
 
         # takes the mean value
-        bgr = tf.concat(3, [h - self.img_mean[0], s - self.img_mean[1], v - self.img_mean[2], ])
+        bgr = tf.concat(3, [h - self.img_mean[0], s - self.img_mean[1], \
+                            v - self.img_mean[2], ])
 
         # make sure final shape meets the shape
         assert bgr.get_shape().as_list()[1:] == [224, 224, 3]
@@ -85,22 +88,18 @@ class siamese:
         pool5 = self.max_pool(conv5_4, "pool5")                # 7 x 7 x 512
 
         # fully connected
-        fc6 = self.new_fc_layer(pool5, 25088, 4096, "fc6")     # 1 x 1 x 4096
-        assert fc6.get_shape().as_list()[1:] == [4096]         # make sure it fits
-   
+        fc6 = self.new_fc_layer(pool5, 25088, 4096, "fc6")     # 1 x 1 x 4096   
         relu6 = tf.nn.relu(fc6)
+        drop6 = tf.nn.dropout(relu6, self.dropout_rate)
 
-        drop6 = tf.nn.dropout(fc6, self.dropout_rate)
+        fc7   = self.new_fc_layer(drop6, 4096, 4096, "fc7")    # 1 x 1 x 4096
+        relu7 = tf.nn.relu(fc7)                                
+        drop7 = tf.nn.dropout(relu7, self.dropout_rate)
 
-        fc7   = self.new_fc_layer(drop6, 4096, 4096, "fc7")
-        relu7 = tf.nn.relu(fc7)                                # 1 x 1 x 4096
-
-        drop7 = tf.nn.dropout(fc7, self.dropout_rate)
-
-        fc8   = self.new_fc_layer(drop7, 4096, 50, "fc8")
+        fc8   = self.new_fc_layer(drop7, 4096, 1, "fc8")       # 1 x 1 x 1
         relu8  = tf.nn.relu(fc8)
 
-        prob = tf.nn.dropout(relu8, self.dropout_rate)
+        prob = tf.nn.dropout(relu8, self.dropout_rate)         # final result
 
         s_dict = None
 
@@ -108,10 +107,12 @@ class siamese:
 
     # take the average pooling of the result, aka the size turns into half
     def avg_pool(self, bottom, name):
-        return tf.nn.avg_pool(bottom, ksize = [1, 2, 2, 1], strides = [1, 2, 2, 1], padding = 'SAME', name = name)
+        return tf.nn.avg_pool(bottom, ksize = [1, 2, 2, 1], \
+                              strides = [1, 2, 2, 1], padding = 'SAME', name = name)
 
     def max_pool(self, bottom, name):
-        return tf.nn.max_pool(bottom, ksize = [1, 2, 2, 1], strides = [1, 2, 2, 1], padding = 'SAME', name = name)
+        return tf.nn.max_pool(bottom, ksize = [1, 2, 2, 1], \
+                              strides = [1, 2, 2, 1], padding = 'SAME', name = name)
 
     def conv_layer(self, bottom, name):
         with tf.variable_scope(name, reuse = None) as scope:
@@ -224,55 +225,64 @@ class siamese:
         return tf.constant(self.s_dict[name][0], name="weights")
 
     def loss(self):
-        # implements loss function from S. Chopra, R. Hadsell and Y. LeCun,
-        #                        "Learning a Similarity Metric Discriminatively, 
-        #                                 with Application to Face Verification"
+        ## implements loss function from S. Chopra, R. Hadsell and Y. LeCun,
+        ##                        "Learning a Similarity Metric Discriminatively, 
+        ##                                 with Application to Face Verification"
+        ##
         # Y:     if x1 is older
-        labels_o = tf.cast(self.y, tf.float32)
+        # labels_o = tf.cast(self.y, tf.float32)
 
         # 1 - Y: if x1 is newer
-        labels_n = tf.cast(tf.sub(1, self.y, name="oneSubYi"), tf.float32)
+        # labels_n = tf.cast(tf.sub(1, self.y, name="oneSubYi"), tf.float32)
 
         # L1 normalization!
-        E_w = tf.reduce_sum(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
+        # E_w = tf.reduce_sum(tf.abs(tf.sub(self.a1, self.a2)), 1, keep_dims = True)
 
         # L2 normalization
         # E_w = tf.nn.l2_normalize(tf.sub(self.a1, self.a2), 1)
 
-        Q = tf.cast(10, tf.float32)
+        # Q = tf.cast(10, tf.float32)
 
-        loss = tf.add(tf.mul(2/Q, tf.mul(labels_n, tf.pow(E_w, 2))),
-                      tf.mul(2*Q, tf.mul(labels_o,
-                                         tf.pow (np.e, tf.mul(-2.77/Q, E_w))
-                      )))
+        # loss = tf.add(tf.mul(2/Q, tf.mul(labels_n, tf.pow(E_w, 2))),
+        #               tf.mul(2*Q, tf.mul(labels_o,
+        #                                  tf.pow (np.e, tf.mul(-2.77/Q, E_w))
+        #               )))
+
+        ## apply l2 norm raw value
+        ##
+        # d1 = tf.sqrt(tf.reduce_sum(tf.square(tf.sub(self.a1, self.a2)),
+        #                            reduction_indices=1) 
+        #             )
+
+        ## apply l2 norm distance and apply cosine distance
+        ##
+        # p1 = tf.nn.l2_normalize(self.a1, dim=1)
+        # p2 = tf.nn.l2_normalize(self.a2, dim=1)
+
+        # cos_dis = tf.matmul(normed_array, 
+        #                     tf.transpose(normed_embedding, [1, 0]))
 
         ### apply new loss function!
-#        zero = tf.cast(0, tf.float32)
-#        p1 = tf.reduce_sum(tf.pow(self.a1, 2), 1, keep_dims = True)
-#        p2 = tf.reduce_sum(tf.pow(self.a2, 2), 1, keep_dims = True)
-
-#        p1 = tf.cast(p1, tf.float32)
-#        p2 = tf.cast(p2, tf.float32)
+        p1 = self.a1
+        p2 = self.a2
 
         # get distances from right answer
-#        d1 = p1 # tf.sub(tf.abs(p1), tf.abs(p2))
-#        d2 = p2 # tf.sub(tf.abs(p2), tf.abs(p1))
+        d1 = tf.maximum(tf.sub(tf.abs(p1), tf.abs(p2)), 0)
+        d2 = tf.maximum(tf.sub(tf.abs(p2), tf.abs(p1)), 0)
 
         # Y:     if x1 is older
-#        label_o = tf.cast(self.y, tf.float32)
+        label_o = tf.cast(self.y, tf.float32)
 
         # 1 - Y: if x1 is newer
-#        label_n = tf.cast(tf.sub(1, self.y), tf.float32)
+        label_n = tf.cast(tf.sub(1, self.y), tf.float32)
 
         # constant
-#        c = tf.cast(1/2, tf.float32)
-
-#        # apply loss
-#        loss = tf.mul(
-#                      c, tf.add(
-#                                tf.mul(label_o, d1), tf.mul(label_n, d2)
-#                               )
-#                     )
+        c = tf.cast(1/2, tf.float32)
+ 
+        # apply loss
+        loss = tf.mul(c, tf.add(tf.mul(label_o, d1), tf.mul(label_n, d2)
+                               )
+                     )
 
         return loss
 
@@ -285,10 +295,10 @@ class siamese:
 
         ### subtract and check if the result was either positive and negative:
         ###   and begin to work from that!
-        p1 = tf.nn.l2_normalize(self.a1, 1)
-        p2 = tf.nn.l2_normalize(self.a2, 1)
+        p1 = self.a1
+        p2 = self.a2
 
-        res = tf.sub(tf.abs(p1), tf.abs(p2))
+        res = tf.sub(p1, p2)
         
         f1 = lambda x: tf.constant(1.0) if tf.less(res, 0) is True else tf.constant(0.0)
 

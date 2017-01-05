@@ -35,3 +35,14 @@
     converter imagem para H (cor) S (intensidade) V (intensidade, incidencia) -> verificar o que muda mais durante o dia
 
     > fazer gráficos etc para visualizar)
+
+/** 08/11 **/
+> triple neural network evaluation
+> utilizar scores de horário do dia
+
+pegar uma rede menor (alexnet)
+verificar loss function
+autoencoder
+data augmentation
+
+converter hsv pra 0 a 255
