@@ -2,10 +2,9 @@ import tensorflow as tf
 import numpy as np
 
 # Implementation of an auto-encoding variational bayes;
-# source: [https://arxiv.org/pdf/1312.6114v10.pdf]
-#
-# references: https://github.com/ikostrikov/TensorFlow-VAE-GAN-DRAW/blob/master/main-vae.py;
+#     source: [https://arxiv.org/pdf/1312.6114v10.pdf]
 
+# default values
 IMG_DIM = 224
 
 class VAE:
@@ -134,4 +133,3 @@ class VAE:
         cost = tf.reduce_mean(reconstruction_loss, latent_loss)
 
         return cost
-

@@ -63,10 +63,10 @@ def train(tr_dataset, te_dataset):
         te_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/test')
 
         # initialize VAE neural network
-        VAE = VAE.VAE(FLAGS.batch_size, FLAGS.pretrained_path)
+        VAE = VAE.VAE(FLAGS.batch_size, FLAGS.hidden_size)
 
         # create an optimizer that performs gradient descent
-        opt = tf.train.AdamOptimizer(FLAG.lr, FLAG.hidden_size)
+        opt = tf.train.AdamOptimizer(FLAG.lr, beta1=.5)
         opt_op = opt.minimize(VAE.loss, global_step=batch)
 
         saver = tf.train.Saver()
