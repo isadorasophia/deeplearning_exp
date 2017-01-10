@@ -2,7 +2,7 @@
 import tensorflow as tf
 import numpy as np
 
-import autoencoder
+import autoencoder as ae
 import amos
 
 # train the network!
@@ -24,9 +24,9 @@ tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
 
 # some important paths
-tf.app.flags.DEFINE_string('data_dir', '/work/amosexp/data/output/', 
+tf.app.flags.DEFINE_string('data_dir', '/home/isophia/tcm/data/output/', 
                            'Directory for storing data')
-tf.app.flags.DEFINE_string('summaries_dir', '/work/amosexp/summaries/', 
+tf.app.flags.DEFINE_string('summaries_dir', '/home/isophia/tcm/summaries/', 
                            'Summaries directory')
 
 
@@ -51,26 +51,26 @@ def train(tr_dataset, te_dataset):
         # set config options
         config = tf.ConfigProto(allow_soft_placement = True)
         config.gpu_options.allow_growth = False
-        config.gpu_options.per_process_gpu_memory_fraction = 0.8
+        config.gpu_options.per_process_gpu_memory_fraction = 0.4
 
         # initialize session
         sess = tf.InteractiveSession(config = config)
         i_test = 0 # iterator for test evaluation
 
         # summary writers
-        tr_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/train',
+        tr_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/train',
                       sess.graph)
-        te_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/test')
+        te_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/test')
 
         # initialize VAE neural network
-        VAE = VAE.VAE(FLAGS.batch_size, FLAGS.hidden_size)
+        VAE = ae.VAE(FLAGS.batch_size, FLAGS.hidden_size)
 
         # create an optimizer that performs gradient descent
-        opt = tf.train.AdamOptimizer(FLAG.lr, beta1=.5)
-        opt_op = opt.minimize(VAE.loss, global_step=batch)
+        opt = tf.train.AdamOptimizer(FLAGS.lr, beta1=.5)
+        opt_op = opt.minimize(VAE.loss)
 
         saver = tf.train.Saver()
-        tf.initialize_all_variables().run()
+        tf.global_variables_initializer().run()
 
         # check if there is a valid checkpoint
         ckpt = tf.train.get_checkpoint_state(FLAGS.data_dir)

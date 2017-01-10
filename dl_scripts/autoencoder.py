@@ -23,33 +23,33 @@ class VAE:
         self.training = tf.Variable(True, name='training')
 
         # define dropout rate
-        self.dropout_rate = tf.placeholder(tf.float32, name="dropout_rate")
+        self.dropout_rate = tf.placeholder(tf.float16, name="dropout_rate")
 
         self.z, self.mean, self.std = self.encoder(self.x)
         self.y = self.decoder(self.z)
 
         # estimate loss
-        self.loss = self.loss(self.mean, self.epsilon, self.std)
+        self.loss = self.loss(self.mean, self.std)
 
         # debug visualization
-        self.loss_sum = tf.scalar_summary("loss", tf.reduce_mean(self.loss))
+        self.loss_sum = tf.summary.scalar("loss", tf.reduce_mean(self.loss))
 
     def encoder(self, x):
         # x := HSV image of dimensions [batch, height, width, 3]
-        conv1 = self.conv_layer(x, [4, 4, 3, 64], "conv1", batch_norm=False)
-        conv2 = self.conv_layer(conv1, [4, 4,  64, 128], "conv2")
-        conv3 = self.conv_layer(conv2, [4, 4, 128, 256], "conv3")
-        conv4 = self.conv_layer(conv3, [4, 4, 256, 512], "conv4")
-        conv5 = self.conv_layer(conv4, [4, 4, 512, 512], "conv5")
-        conv6 = self.conv_layer(conv5, [4, 4, 512, 512], "conv6")
-        conv7 = self.conv_layer(conv6, [4, 4, 512, 512], "conv7")
-        conv8 = self.conv_layer(conv7, [4, 4, 512, 512], "conv8")
+        conv1 = self.conv_layer(x, [4, 4, 3, 64], "e_conv1", batch_norm=False)
+        conv2 = self.conv_layer(conv1, [4, 4,  64, 128], "e_conv2")
+        conv3 = self.conv_layer(conv2, [4, 4, 128, 256], "e_conv3")
+        conv4 = self.conv_layer(conv3, [4, 4, 256, 512], "e_conv4")
+        conv5 = self.conv_layer(conv4, [4, 4, 512, 512], "e_conv5")
+        conv6 = self.conv_layer(conv5, [4, 4, 512, 512], "e_conv6")
+        conv7 = self.conv_layer(conv6, [4, 4, 512, 512], "e_conv7")
+        conv8 = self.conv_layer(conv7, [4, 4, 512, 512], "e_conv8")
 
         # fully connected
-        mean = self.fc_layer(conv8, 4096, self.z_dim, "mean")
+        mean = self.fc_layer(conv8, 7680, self.z_dim, "mean")
 
         # apply normal distribution and std from mean value
-        epsilon = tf.random_normal([self.batch_size, self.z_dim])
+        epsilon = tf.random_normal([self.batch_size, self.z_dim], dtype=tf.float16)
         std = tf.sqrt(tf.exp(mean))
 
         # find out z
@@ -59,14 +59,15 @@ class VAE:
 
     def decoder(self, z):
         # z := feature of dimensions [batch, z_dim, 1]
-        conv1 = self.conv_layer(z, [4, 4, 1, 512], "conv1", dropout=True)
-        conv2 = self.conv_layer(conv1, [4, 4, 512, 512], "conv2", dropout=True)
-        conv3 = self.conv_layer(conv2, [4, 4, 512, 512], "conv3", dropout=True)
-        conv4 = self.conv_layer(conv3, [4, 4, 512, 512], "conv4")
-        conv5 = self.conv_layer(conv4, [4, 4, 512, 512], "conv5")
-        conv6 = self.conv_layer(conv5, [4, 4, 512, 256], "conv6")
-        conv7 = self.conv_layer(conv6, [4, 4, 256, 128], "conv7")
-        conv8 = self.conv_layer(conv7, [4, 4, 128, 64], "conv8")
+        z = tf.expand_dims(tf.expand_dims(z, 1), 1)
+        conv1 = self.conv_layer(z, [4, 4, self.z_dim, 512], "d_conv1", dropout=True)
+        conv2 = self.conv_layer(conv1, [4, 4, 512, 512], "d_conv2", dropout=True)
+        conv3 = self.conv_layer(conv2, [4, 4, 512, 512], "d_conv3", dropout=True)
+        conv4 = self.conv_layer(conv3, [4, 4, 512, 512], "d_conv4")
+        conv5 = self.conv_layer(conv4, [4, 4, 512, 512], "d_conv5")
+        conv6 = self.conv_layer(conv5, [4, 4, 512, 256], "d_conv6")
+        conv7 = self.conv_layer(conv6, [4, 4, 256, 128], "d_conv7")
+        conv8 = self.conv_layer(conv7, [4, 4, 128, 64], "d_conv8")
         y = self.conv_layer(conv8, [4, 4, 64, 3], "y", batch_norm=False)
 
         return y
@@ -77,15 +78,17 @@ class VAE:
             conv_filt = tf.get_variable(
                                         "W",
                                         shape = dim,
+                                        dtype = tf.float16,
                                         initializer = tf.contrib.layers.xavier_initializer_conv2d()
                                         )
             conv_bias = tf.get_variable(
                                         "b",
                                         shape = [dim[-1]],
+                                        dtype = tf.float16,
                                         initializer = tf.constant_initializer(0.)
                                         )
 
-            conv = tf.nn.conv2d(bottom, filter=conv_filt, stride=[1, 2, 2, 1], padding='SAME')
+            conv = tf.nn.conv2d(bottom, filter=conv_filt, strides=[1, 2, 2, 1], padding='SAME')
             bias = tf.nn.bias_add(conv, conv_bias)
 
             # apply batch norm
@@ -108,12 +111,14 @@ class VAE:
             weights = tf.get_variable(
                       "W",
                       shape = [in_size, out_size],
+                      dtype = tf.float16,
                       initializer = tf.contrib.layers.xavier_initializer()
                       )
 
             bias = tf.get_variable(
                    "b",
                    shape = [out_size],
+                   dtype = tf.float16,
                    initializer = tf.constant_initializer(0.)
                    )
 
@@ -125,11 +130,11 @@ class VAE:
     def loss(self, mean, std, epsilon=1e-6):
         reconstruction_loss = -tf.reduce_sum(self.x * tf.log(self.y+epsilon) +
                                              (1.0 - self.x) * 
-                                             tf.log(1.0 - output_tensor + epsilon))
+                                             tf.log(1.0 - self.y + epsilon))
 
         latent_loss = .5 * tf.reduce_sum(2.0 * tf.log(std + epsilon) - 
                                          tf.square(mean) - tf.square(std) + 1.0)
 
-        cost = tf.reduce_mean(reconstruction_loss, latent_loss)
+        cost = reconstruction_loss + latent_loss
 
         return cost
